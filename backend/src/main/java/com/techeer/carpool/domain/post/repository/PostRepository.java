@@ -1,0 +1,14 @@
+package com.techeer.carpool.domain.post.repository;
+
+import com.techeer.carpool.domain.post.entity.Post;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface PostRepository extends JpaRepository<Post, Long> {
+
+    List<Post> findByDeletedFalseOrderByCreatedAtDesc();
+
+    Optional<Post> findByIdAndDeletedFalse(Long id);
+}
