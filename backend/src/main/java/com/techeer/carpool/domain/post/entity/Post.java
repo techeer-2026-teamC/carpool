@@ -120,4 +120,11 @@ public class Post {
     public void delete() {
         this.deleted = true;
     }
+
+    public void increasePassengers() {
+        this.currentPassengers++;
+        if (this.currentPassengers >= this.maxPassengers) {
+        this.status = PostStatus.CLOSED;
+        }
+    }
 }
