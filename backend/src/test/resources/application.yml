@@ -8,13 +8,9 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: test-client-id
-            client-secret: test-client-secret
-            scope:
-              - email
-              - profile
+
+jwt:
+  secret: test-secret-key-for-unit-testing-purposes-only!!
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+  cookie-secure: false
