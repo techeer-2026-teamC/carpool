@@ -55,7 +55,7 @@ public class AuthController {
                 .build());
     }
 
-    @PostMapping("/reissue")
+    @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> reissue(HttpServletRequest request,
                                                  HttpServletResponse response) {
         String refreshToken = extractRefreshTokenCookie(request);
