@@ -6,7 +6,6 @@ import com.techeer.carpool.domain.member.dto.SignupRequest;
 import com.techeer.carpool.domain.member.dto.TokenResponse;
 import com.techeer.carpool.domain.member.service.MemberLoginService;
 import com.techeer.carpool.domain.member.service.MemberSignupService;
-import com.techeer.carpool.domain.member.service.MemberWithdrawService;
 import com.techeer.carpool.domain.member.service.TokenReissueService;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
@@ -20,7 +19,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -33,7 +31,6 @@ public class AuthController {
     private final MemberSignupService memberSignupService;
     private final MemberLoginService memberLoginService;
     private final TokenReissueService tokenReissueService;
-    private final MemberWithdrawService memberWithdrawService;
     private final JwtTokenProvider jwtTokenProvider;
 
     @Value("${jwt.cookie-secure}")
@@ -56,7 +53,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<TokenResponse> reissue(HttpServletRequest request,
+    public ResponseEntity<TokenResponse> refresh(HttpServletRequest request,
                                                  HttpServletResponse response) {
         String refreshToken = extractRefreshTokenCookie(request);
         AuthTokens tokens = tokenReissueService.reissue(refreshToken);
@@ -66,15 +63,6 @@ public class AuthController {
                 .build());
     }
 
-    @DeleteMapping("/withdraw")
-    public ResponseEntity<Void> withdraw(Authentication authentication,
-                                         HttpServletResponse response) {
-        Long memberId = (Long) authentication.getPrincipal();
-        memberWithdrawService.withdraw(memberId);
-        clearRefreshTokenCookie(response);
-        return ResponseEntity.noContent().build();
-    }
-
     private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
@@ -82,17 +70,6 @@ public class AuthController {
                 .secure(cookieSecure)
                 .path("/api/v1/auth")
                 .maxAge(jwtTokenProvider.getRefreshTokenExpirationSeconds())
-                .build();
-        response.addHeader("Set-Cookie", cookie.toString());
-    }
-
-    private void clearRefreshTokenCookie(HttpServletResponse response) {
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true)
-                .sameSite("Strict")
-                .secure(cookieSecure)
-                .path("/api/v1/auth")
-                .maxAge(0)
                 .build();
         response.addHeader("Set-Cookie", cookie.toString());
     }
