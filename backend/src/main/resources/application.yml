@@ -1,14 +1,4 @@
 spring:
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            scope:
-              - email
-              - profile
   application:
     name: carpool
 
@@ -22,3 +12,8 @@ spring:
     hibernate:
       ddl-auto: update # 엔티티 변경 시 DB 테이블 자동 업데이트
     show-sql: true     # 실행되는 SQL을 콘솔에 출력
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: 900000      # 15분
+  refresh-token-expiration: 604800000  # 7일
