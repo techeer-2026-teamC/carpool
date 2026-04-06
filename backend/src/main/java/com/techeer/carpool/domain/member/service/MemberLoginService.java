@@ -1,7 +1,7 @@
 package com.techeer.carpool.domain.member.service;
 
+import com.techeer.carpool.domain.member.dto.AuthTokens;
 import com.techeer.carpool.domain.member.dto.LoginRequest;
-import com.techeer.carpool.domain.member.dto.TokenResponse;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.entity.RefreshToken;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
@@ -24,7 +24,7 @@ public class MemberLoginService {
     private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
-    public TokenResponse login(LoginRequest request) {
+    public AuthTokens login(LoginRequest request) {
         Member member = memberRepository.findByEmail(request.getEmail())
                 .filter(m -> !m.isDeleted())
                 .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
@@ -43,9 +43,6 @@ public class MemberLoginService {
                 .expiresAt(jwtTokenProvider.getRefreshTokenExpiresAt())
                 .build());
 
-        return TokenResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .build();
+        return new AuthTokens(accessToken, refreshToken);
     }
 }

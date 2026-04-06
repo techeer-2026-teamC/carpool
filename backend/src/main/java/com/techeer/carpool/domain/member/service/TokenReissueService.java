@@ -1,6 +1,6 @@
 package com.techeer.carpool.domain.member.service;
 
-import com.techeer.carpool.domain.member.dto.TokenResponse;
+import com.techeer.carpool.domain.member.dto.AuthTokens;
 import com.techeer.carpool.domain.member.entity.RefreshToken;
 import com.techeer.carpool.domain.member.repository.RefreshTokenRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
@@ -18,7 +18,7 @@ public class TokenReissueService {
     private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
-    public TokenResponse reissue(String refreshTokenValue) {
+    public AuthTokens reissue(String refreshTokenValue) {
         if (!jwtTokenProvider.validateToken(refreshTokenValue)) {
             throw new CarpoolException(ErrorCode.INVALID_TOKEN);
         }
@@ -32,9 +32,6 @@ public class TokenReissueService {
 
         refreshToken.rotate(newRefreshToken, jwtTokenProvider.getRefreshTokenExpiresAt());
 
-        return TokenResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
-                .build();
+        return new AuthTokens(newAccessToken, newRefreshToken);
     }
 }

@@ -2,3 +2,4 @@ jwt:
   secret: local-dev-secret-key-for-testing-only-32chars!!
   access-token-expiration: 900000
   refresh-token-expiration: 604800000
+  cookie-secure: false

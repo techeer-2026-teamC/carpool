@@ -52,6 +52,10 @@ public class JwtTokenProvider {
         return LocalDateTime.now().plusSeconds(refreshTokenExpiration / 1000);
     }
 
+    public long getRefreshTokenExpirationSeconds() {
+        return refreshTokenExpiration / 1000;
+    }
+
     private String buildToken(Long memberId, long expiration) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
