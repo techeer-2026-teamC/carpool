@@ -28,3 +28,6 @@ replay_pid*
 
 # Docker database data
 postgres_data/
+
+# IntelliJ IDEA
+.idea/
