@@ -1,4 +1,4 @@
-package com.techeer.carpool.domain.member.entity;
+package com.techeer.carpool.domain.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.Builder;

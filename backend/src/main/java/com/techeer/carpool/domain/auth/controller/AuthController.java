@@ -1,12 +1,12 @@
-package com.techeer.carpool.domain.member.controller;
+package com.techeer.carpool.domain.auth.controller;
 
-import com.techeer.carpool.domain.member.dto.AuthTokens;
-import com.techeer.carpool.domain.member.dto.LoginRequest;
-import com.techeer.carpool.domain.member.dto.SignupRequest;
-import com.techeer.carpool.domain.member.dto.TokenResponse;
-import com.techeer.carpool.domain.member.service.MemberLoginService;
-import com.techeer.carpool.domain.member.service.MemberSignupService;
-import com.techeer.carpool.domain.member.service.TokenReissueService;
+import com.techeer.carpool.domain.auth.dto.AuthTokens;
+import com.techeer.carpool.domain.auth.dto.LoginRequest;
+import com.techeer.carpool.domain.auth.dto.SignupRequest;
+import com.techeer.carpool.domain.auth.dto.TokenResponse;
+import com.techeer.carpool.domain.auth.service.MemberLoginService;
+import com.techeer.carpool.domain.auth.service.MemberSignupService;
+import com.techeer.carpool.domain.auth.service.TokenReissueService;
 import com.techeer.carpool.global.common.ApiResponse;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;

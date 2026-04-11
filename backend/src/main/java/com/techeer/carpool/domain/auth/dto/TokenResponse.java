@@ -1,4 +1,4 @@
-package com.techeer.carpool.domain.member.dto;
+package com.techeer.carpool.domain.auth.dto;
 
 import lombok.Builder;
 import lombok.Getter;

@@ -56,6 +56,14 @@ public class Member {
         this.nickname = nickname;
     }
 
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
     public void withdraw() {
         this.deleted = true;
     }

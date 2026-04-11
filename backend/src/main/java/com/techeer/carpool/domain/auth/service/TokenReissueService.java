@@ -1,8 +1,8 @@
-package com.techeer.carpool.domain.member.service;
+package com.techeer.carpool.domain.auth.service;
 
-import com.techeer.carpool.domain.member.dto.AuthTokens;
-import com.techeer.carpool.domain.member.entity.RefreshToken;
-import com.techeer.carpool.domain.member.repository.RefreshTokenRepository;
+import com.techeer.carpool.domain.auth.dto.AuthTokens;
+import com.techeer.carpool.domain.auth.entity.RefreshToken;
+import com.techeer.carpool.domain.auth.repository.RefreshTokenRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;

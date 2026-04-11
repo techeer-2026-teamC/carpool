@@ -1,6 +1,6 @@
-package com.techeer.carpool.domain.member.service;
+package com.techeer.carpool.domain.auth.service;
 
-import com.techeer.carpool.domain.member.dto.SignupRequest;
+import com.techeer.carpool.domain.auth.dto.SignupRequest;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
