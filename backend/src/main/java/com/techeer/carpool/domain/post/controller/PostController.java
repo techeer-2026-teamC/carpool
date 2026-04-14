@@ -8,9 +8,11 @@ import com.techeer.carpool.domain.post.service.PostDeleteService;
 import com.techeer.carpool.domain.post.service.PostReadService;
 import com.techeer.carpool.domain.post.service.PostUpdateService;
 import com.techeer.carpool.global.common.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,9 +28,12 @@ public class PostController {
     private final PostDeleteService postDeleteService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<PostResponse>> createPost(@RequestBody PostCreateRequest request) {
+    public ResponseEntity<ApiResponse<PostResponse>> createPost(
+            @Valid @RequestBody PostCreateRequest request,
+            Authentication authentication) {
+        Long memberId = (Long) authentication.getPrincipal();
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.of("게시글이 생성되었습니다.", postCreateService.createPost(request)));
+                .body(ApiResponse.of("게시글이 생성되었습니다.", postCreateService.createPost(memberId, request)));
     }
 
     @GetMapping
@@ -42,8 +47,9 @@ public class PostController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<PostResponse>> updatePost(@PathVariable Long id,
-                                                                @RequestBody PostUpdateRequest request) {
+    public ResponseEntity<ApiResponse<PostResponse>> updatePost(
+            @PathVariable Long id,
+            @Valid @RequestBody PostUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.of("게시글이 수정되었습니다.", postUpdateService.updatePost(id, request)));
     }
 
