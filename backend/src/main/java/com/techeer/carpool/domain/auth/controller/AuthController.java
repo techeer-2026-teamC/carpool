@@ -29,6 +29,8 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public class AuthController {
 
+    private static final String REFRESH_TOKEN_COOKIE = REFRESH_TOKEN_COOKIE;
+
     private final MemberSignupService memberSignupService;
     private final MemberLoginService memberLoginService;
     private final TokenReissueService tokenReissueService;
@@ -64,7 +66,7 @@ public class AuthController {
     }
 
     private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, refreshToken)
                 .httpOnly(true)
                 .sameSite("Strict")
                 .secure(cookieSecure)
@@ -79,7 +81,7 @@ public class AuthController {
             throw new CarpoolException(ErrorCode.INVALID_TOKEN);
         }
         return Arrays.stream(request.getCookies())
-                .filter(c -> "refreshToken".equals(c.getName()))
+                .filter(c -> REFRESH_TOKEN_COOKIE.equals(c.getName()))
                 .findFirst()
                 .map(Cookie::getValue)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.INVALID_TOKEN));
