@@ -1,6 +1,6 @@
 package com.techeer.carpool.domain.vehicle.dto;
 
-import com.techeer.carpool.domain.vehicle.entity.CarModel;
+import com.techeer.carpool.domain.vehicle.entity.VehicleOption;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,11 +12,11 @@ public class CarModelResponse {
     private String brand;
     private String name;
 
-    public static CarModelResponse from(CarModel carModel) {
+    public static CarModelResponse from(VehicleOption option) {
         return CarModelResponse.builder()
-                .id(carModel.getId())
-                .brand(carModel.getBrand())
-                .name(carModel.getName())
+                .id(option.getId())
+                .brand(option.getBrand())
+                .name(option.getName())
                 .build();
     }
 }

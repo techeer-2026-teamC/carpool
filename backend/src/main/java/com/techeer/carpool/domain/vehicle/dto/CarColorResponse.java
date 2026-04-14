@@ -1,6 +1,6 @@
 package com.techeer.carpool.domain.vehicle.dto;
 
-import com.techeer.carpool.domain.vehicle.entity.CarColor;
+import com.techeer.carpool.domain.vehicle.entity.VehicleOption;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,11 +12,11 @@ public class CarColorResponse {
     private String name;
     private String hexCode;
 
-    public static CarColorResponse from(CarColor carColor) {
+    public static CarColorResponse from(VehicleOption option) {
         return CarColorResponse.builder()
-                .id(carColor.getId())
-                .name(carColor.getName())
-                .hexCode(carColor.getHexCode())
+                .id(option.getId())
+                .name(option.getName())
+                .hexCode(option.getHexCode())
                 .build();
     }
 }

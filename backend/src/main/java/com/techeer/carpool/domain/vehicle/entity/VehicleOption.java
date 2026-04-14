@@ -10,19 +10,26 @@ import java.time.LocalDateTime;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "car_colors")
+@Table(name = "vehicle_options")
 @Getter
 @NoArgsConstructor(access = PROTECTED)
-public class CarColor {
+public class VehicleOption {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 30)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private VehicleOptionType type;
+
+    @Column(length = 50)
+    private String brand;
+
+    @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false, length = 7)
+    @Column(length = 7)
     private String hexCode;
 
     @Column(nullable = false, updatable = false)
@@ -34,7 +41,9 @@ public class CarColor {
     }
 
     @Builder
-    public CarColor(String name, String hexCode) {
+    public VehicleOption(VehicleOptionType type, String brand, String name, String hexCode) {
+        this.type = type;
+        this.brand = brand;
         this.name = name;
         this.hexCode = hexCode;
     }

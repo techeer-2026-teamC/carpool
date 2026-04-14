@@ -2,32 +2,28 @@ package com.techeer.carpool.domain.vehicle.service;
 
 import com.techeer.carpool.domain.vehicle.dto.CarColorResponse;
 import com.techeer.carpool.domain.vehicle.dto.CarModelResponse;
-import com.techeer.carpool.domain.vehicle.repository.CarColorRepository;
-import com.techeer.carpool.domain.vehicle.repository.CarModelRepository;
+import com.techeer.carpool.domain.vehicle.dto.VehicleOptionsResponse;
+import com.techeer.carpool.domain.vehicle.entity.VehicleOptionType;
+import com.techeer.carpool.domain.vehicle.repository.VehicleOptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class VehicleReadService {
 
-    private final CarModelRepository carModelRepository;
-    private final CarColorRepository carColorRepository;
+    private final VehicleOptionRepository vehicleOptionRepository;
 
     @Transactional(readOnly = true)
-    public List<CarModelResponse> getAllCarModels() {
-        return carModelRepository.findAll().stream()
-                .map(CarModelResponse::from)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<CarColorResponse> getAllCarColors() {
-        return carColorRepository.findAll().stream()
-                .map(CarColorResponse::from)
-                .toList();
+    public VehicleOptionsResponse getAllVehicleOptions() {
+        return VehicleOptionsResponse.builder()
+                .models(vehicleOptionRepository.findAllByType(VehicleOptionType.MODEL).stream()
+                        .map(CarModelResponse::from)
+                        .toList())
+                .colors(vehicleOptionRepository.findAllByType(VehicleOptionType.COLOR).stream()
+                        .map(CarColorResponse::from)
+                        .toList())
+                .build();
     }
 }

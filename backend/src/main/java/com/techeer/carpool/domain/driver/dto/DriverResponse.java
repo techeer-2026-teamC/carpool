@@ -1,8 +1,7 @@
 package com.techeer.carpool.domain.driver.dto;
 
 import com.techeer.carpool.domain.driver.entity.Driver;
-import com.techeer.carpool.domain.vehicle.entity.CarColor;
-import com.techeer.carpool.domain.vehicle.entity.CarModel;
+import com.techeer.carpool.domain.vehicle.entity.VehicleOption;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -21,7 +20,7 @@ public class DriverResponse {
     private String carNumber;
     private LocalDateTime createdAt;
 
-    public static DriverResponse from(Driver driver, CarModel carModel, CarColor carColor) {
+    public static DriverResponse from(Driver driver, VehicleOption carModel, VehicleOption carColor) {
         return DriverResponse.builder()
                 .driverId(driver.getDriverId())
                 .memberId(driver.getMemberId())
