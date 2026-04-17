@@ -42,6 +42,7 @@ public class Member extends SoftDeletableEntity {
         this.password = encodedPassword;
     }
 
+    // 탈퇴 관련 로직 추가를 위해 유지
     public void withdraw() {
         delete();
     }
