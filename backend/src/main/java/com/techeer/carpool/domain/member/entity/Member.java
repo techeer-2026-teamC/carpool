@@ -1,11 +1,10 @@
 package com.techeer.carpool.domain.member.entity;
 
+import com.techeer.carpool.global.common.entity.SoftDeletableEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -13,7 +12,7 @@ import static lombok.AccessLevel.PROTECTED;
 @Table(name = "members")
 @Getter
 @NoArgsConstructor(access = PROTECTED)
-public class Member {
+public class Member extends SoftDeletableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,32 +21,11 @@ public class Member {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 60)
     private String password;
 
     @Column(nullable = false, length = 50)
     private String nickname;
-
-    @Column(nullable = false)
-    private boolean deleted;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    private void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.deleted = false;
-    }
-
-    @PreUpdate
-    private void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 
     @Builder
     public Member(String email, String password, String nickname) {
@@ -64,7 +42,8 @@ public class Member {
         this.password = encodedPassword;
     }
 
+    // 탈퇴 관련 로직 추가를 위해 유지
     public void withdraw() {
-        this.deleted = true;
+        delete();
     }
 }

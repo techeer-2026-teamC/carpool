@@ -1,18 +1,19 @@
 package com.techeer.carpool.domain.ride.entity;
 
+import com.techeer.carpool.global.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity                          // 이 클래스가 DB 테이블과 매핑되는 JPA 엔티티임을 선언
-@Table(name = "rides")           // DB에서 테이블 이름을 "rides"로 지정
-@Getter                          // Lombok: 모든 필드의 getter 메서드 자동 생성
-@NoArgsConstructor(access = AccessLevel.PROTECTED)  // Lombok: 기본 생성자를 protected로 생성 (외부에서 new Ride() 직접 호출 방지, JPA 내부 사용용)
-@Builder                         // Lombok: 빌더 패턴 자동 생성 (Ride.builder().postId(1L).build() 형태로 객체 생성 가능)
-@AllArgsConstructor              // Lombok: 모든 필드를 받는 생성자 자동 생성 (@Builder가 내부적으로 필요로 함)
-public class Ride {
+@Entity
+@Table(name = "rides")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Builder
+@AllArgsConstructor
+public class Ride extends BaseEntity {
 
     @Id                                                    // 이 필드가 PK(기본키)임을 선언
     @GeneratedValue(strategy = GenerationType.IDENTITY)    // PK를 DB에서 자동 증가(AUTO_INCREMENT)로 생성

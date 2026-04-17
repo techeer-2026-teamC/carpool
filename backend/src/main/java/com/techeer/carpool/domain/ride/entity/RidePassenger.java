@@ -1,16 +1,17 @@
 package com.techeer.carpool.domain.ride.entity;
 
+import com.techeer.carpool.global.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ride_passengers")  // DB 테이블 이름: "ride_passengers"
+@Table(name = "ride_passengers")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
 @AllArgsConstructor
-public class RidePassenger {
+public class RidePassenger extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
