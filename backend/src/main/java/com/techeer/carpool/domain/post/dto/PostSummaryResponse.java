@@ -15,6 +15,7 @@ public class PostSummaryResponse {
     private Long id;
     private Long memberId;
     private String nickname;
+    private double driverAverageRating;
     private String title;
     private String departureLocation;
     private String destinationLocation;
@@ -27,11 +28,12 @@ public class PostSummaryResponse {
     private List<TagResponse> tags;
     private LocalDateTime createdAt;
 
-    public static PostSummaryResponse from(Post post, String nickname) {
+    public static PostSummaryResponse from(Post post, String nickname, double driverAverageRating) {
         return PostSummaryResponse.builder()
                 .id(post.getId())
                 .memberId(post.getMemberId())
                 .nickname(nickname)
+                .driverAverageRating(driverAverageRating)
                 .title(post.getTitle())
                 .departureLocation(post.getDepartureLocation())
                 .destinationLocation(post.getDestinationLocation())

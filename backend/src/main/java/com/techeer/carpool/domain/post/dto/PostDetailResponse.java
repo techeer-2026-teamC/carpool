@@ -16,6 +16,7 @@ public class PostDetailResponse {
     private Long id;
     private Long memberId;
     private String nickname;
+    private double driverAverageRating;
     private String title;
     private String departureLocation;
     private Double departureLat;
@@ -35,11 +36,12 @@ public class PostDetailResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static PostDetailResponse from(Post post, String nickname, List<CommentResponse> comments) {
+    public static PostDetailResponse from(Post post, String nickname, double driverAverageRating, List<CommentResponse> comments) {
         return PostDetailResponse.builder()
                 .id(post.getId())
                 .memberId(post.getMemberId())
                 .nickname(nickname)
+                .driverAverageRating(driverAverageRating)
                 .title(post.getTitle())
                 .departureLocation(post.getDepartureLocation())
                 .departureLat(post.getDepartureLat())
