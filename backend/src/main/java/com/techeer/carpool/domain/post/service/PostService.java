@@ -3,6 +3,8 @@ package com.techeer.carpool.domain.post.service;
 import com.techeer.carpool.domain.application.entity.Application;
 import com.techeer.carpool.domain.application.entity.ApplicationStatus;
 import com.techeer.carpool.domain.application.repository.ApplicationRepository;
+import com.techeer.carpool.domain.comment.dto.CommentResponse;
+import com.techeer.carpool.domain.comment.service.CommentService;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
 import com.techeer.carpool.domain.notification.dto.NotificationPayload;
@@ -38,6 +40,7 @@ public class PostService {
     private final MemberRepository memberRepository;
     private final TagRepository tagRepository;
     private final ApplicationRepository applicationRepository;
+    private final CommentService commentService;
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
 
@@ -61,7 +64,7 @@ public class PostService {
                 .tags(tags)
                 .build();
         Post saved = postRepository.save(post);
-        return PostDetailResponse.from(saved, fetchNickname(saved.getMemberId()));
+        return PostDetailResponse.from(saved, fetchNickname(saved.getMemberId()), List.of());
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +82,10 @@ public class PostService {
     public PostDetailResponse getPostById(Long id) {
         Post post = postRepository.findByIdAndDeletedFalseWithTags(id)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.POST_NOT_FOUND));
-        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()));
+
+        List<CommentResponse> commentResponses = commentService.getCommentsByPostId(id);
+
+        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), commentResponses);
     }
 
     @Transactional
@@ -104,7 +110,7 @@ public class PostService {
                 request.getPrice(),
                 tags
         ));
-        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()));
+        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), List.of());
     }
 
     @Transactional
