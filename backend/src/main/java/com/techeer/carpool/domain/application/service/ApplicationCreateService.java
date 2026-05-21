@@ -11,6 +11,7 @@ import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublis
 import com.techeer.carpool.domain.notification.service.NotificationService;
 import com.techeer.carpool.domain.notification.type.NotificationType;
 import com.techeer.carpool.domain.post.entity.Post;
+import com.techeer.carpool.domain.post.entity.PostStatus;
 import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
@@ -39,7 +40,7 @@ public class ApplicationCreateService {
             throw new CarpoolException(ErrorCode.APPLICATION_SELF);
         }
 
-        if (post.isFull()) {
+        if (post.getStatus() == PostStatus.CLOSED) {
             throw new CarpoolException(ErrorCode.APPLICATION_POST_FULL);
         }
 

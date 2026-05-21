@@ -23,4 +23,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Lock(LockModeType.OPTIMISTIC)
     @Query("SELECT p FROM Post p WHERE p.id = :id AND p.deleted = false")
     Optional<Post> findByIdAndDeletedFalseWithLock(@Param("id") Long id);
+
+    List<Post> findByMemberIdAndDeletedFalse(Long memberId);
 }
