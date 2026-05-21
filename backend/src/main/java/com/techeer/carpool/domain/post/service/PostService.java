@@ -24,6 +24,7 @@ import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.domain.post.repository.TagRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
+import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +46,7 @@ public class PostService {
     private final DriverRepository driverRepository;
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
+    private final CarpoolMetrics carpoolMetrics;
 
     @Transactional
     public PostDetailResponse createPost(PostCreateRequest request, Long memberId) {
@@ -69,6 +71,7 @@ public class PostService {
                 .tags(tags)
                 .build();
         Post saved = postRepository.save(post);
+        carpoolMetrics.incrementPostCreated();
         return PostDetailResponse.from(saved, fetchNickname(saved.getMemberId()), List.of());
     }
 

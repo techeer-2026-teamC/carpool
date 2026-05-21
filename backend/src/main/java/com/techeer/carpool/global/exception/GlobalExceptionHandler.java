@@ -1,6 +1,8 @@
 package com.techeer.carpool.global.exception;
 
 import com.techeer.carpool.global.common.ErrorResponse;
+import com.techeer.carpool.global.metrics.CarpoolMetrics;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -10,7 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final CarpoolMetrics carpoolMetrics;
 
     @ExceptionHandler(CarpoolException.class)
     public ResponseEntity<ErrorResponse> handleCarpoolException(CarpoolException e) {
@@ -22,6 +27,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleOptimisticLockingException(ObjectOptimisticLockingFailureException e) {
+        carpoolMetrics.incrementOptimisticLockConflict();
         ErrorCode errorCode = ErrorCode.POST_CONFLICT;
         return ResponseEntity
                 .status(errorCode.getStatus())

@@ -15,6 +15,7 @@ import com.techeer.carpool.domain.post.entity.Post;
 import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
+import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class ApplicationStatusService {
     private final MemberRepository memberRepository;
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
+    private final CarpoolMetrics carpoolMetrics;
 
     @Transactional
     public ApplicationResponse accept(Long applicationId, Long requesterId) {
@@ -48,6 +50,7 @@ public class ApplicationStatusService {
 
         application.accept();
         post.incrementPassengers();
+        carpoolMetrics.incrementApplicationAccepted();
 
         notificationService.save(Notification.ofApplicationAccepted(application.getApplicantId(), application.getPostId()));
         notificationPublisher.publish(application.getApplicantId(), NotificationPayload.builder()
@@ -71,6 +74,7 @@ public class ApplicationStatusService {
         }
 
         application.reject();
+        carpoolMetrics.incrementApplicationRejected();
 
         notificationService.save(Notification.ofApplicationRejected(application.getApplicantId(), application.getPostId()));
         notificationPublisher.publish(application.getApplicantId(), NotificationPayload.builder()

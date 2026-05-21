@@ -18,6 +18,7 @@ import com.techeer.carpool.domain.ride.repository.RidePassengerRepository;
 import com.techeer.carpool.domain.ride.repository.RideRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
+import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ public class PostCloseService {
     private final DriverRepository driverRepository;
     private final NotificationService notificationService;
     private final RedisNotificationPublisher notificationPublisher;
+    private final CarpoolMetrics carpoolMetrics;
 
     @Transactional
     public void closePost(Long postId, Long requesterId) {
@@ -54,6 +56,7 @@ public class PostCloseService {
         }
 
         post.close();
+        carpoolMetrics.incrementPostClosed();
 
         Ride ride = rideRepository.save(Ride.builder()
                 .postId(postId)

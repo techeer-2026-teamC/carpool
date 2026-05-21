@@ -15,6 +15,7 @@ import com.techeer.carpool.domain.post.entity.PostStatus;
 import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
+import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class ApplicationCreateService {
     private final MemberRepository memberRepository;
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
+    private final CarpoolMetrics carpoolMetrics;
 
     @Transactional
     public ApplicationResponse apply(Long postId, Long applicantId) {
@@ -59,6 +61,7 @@ public class ApplicationCreateService {
         }
 
         Application saved = applicationRepository.save(application);
+        carpoolMetrics.incrementApplicationSubmitted();
 
         String nickname = memberRepository.findById(applicantId)
                 .map(Member::getNickname)

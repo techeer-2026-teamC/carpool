@@ -20,6 +20,7 @@ import com.techeer.carpool.domain.ride.repository.RidePassengerRepository;
 import com.techeer.carpool.domain.ride.repository.RideRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
+import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +41,7 @@ public class RideService {
     private final ApplicationRepository applicationRepository;
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
+    private final CarpoolMetrics carpoolMetrics;
 
     @Transactional
     public RideResponse createRide(RideCreateRequest request, Long driverId) {
@@ -84,6 +86,7 @@ public class RideService {
         Ride ride = findRideById(rideId);
         validateDriver(ride, requesterId);
         ride.start();
+        carpoolMetrics.incrementRideStarted();
 
         List<Long> passengerIds = ride.getPassengers().stream()
                 .map(RidePassenger::getPassengerId)
@@ -106,6 +109,7 @@ public class RideService {
         Ride ride = findRideById(rideId);
         validateDriver(ride, requesterId);
         ride.complete();
+        carpoolMetrics.incrementRideCompleted();
 
         List<Long> passengerIds = ride.getPassengers().stream()
                 .map(RidePassenger::getPassengerId)
@@ -128,6 +132,7 @@ public class RideService {
         Ride ride = findRideById(rideId);
         validateDriver(ride, requesterId);
         ride.updateLocation(request.getLatitude(), request.getLongitude());
+        carpoolMetrics.incrementLocationUpdated();
         return LocationResponse.from(ride);
     }
 
