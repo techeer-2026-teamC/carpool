@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/vehicles/**").permitAll()
                         .requestMatchers("/api/v1/tags").permitAll()
                         .requestMatchers("/api/v1/drivers/colors").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/posts", "/api/v1/posts/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
