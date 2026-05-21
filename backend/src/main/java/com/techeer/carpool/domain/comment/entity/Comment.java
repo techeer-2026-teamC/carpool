@@ -1,11 +1,10 @@
 package com.techeer.carpool.domain.comment.entity;
 
+import com.techeer.carpool.global.common.entity.SoftDeletableEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -13,7 +12,7 @@ import static lombok.AccessLevel.PROTECTED;
 @Table(name = "comments")
 @Getter
 @NoArgsConstructor(access = PROTECTED)
-public class Comment {
+public class Comment extends SoftDeletableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,18 +27,6 @@ public class Comment {
     @Column(nullable = false, length = 500)
     private String content;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private boolean deleted;
-
-    @PrePersist
-    private void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.deleted = false;
-    }
-
     @Builder
     public Comment(Long postId, Long memberId, String content) {
         this.postId = postId;
@@ -49,9 +36,5 @@ public class Comment {
 
     public void update(String content) {
         this.content = content;
-    }
-
-    public void delete() {
-        this.deleted = true;
     }
 }

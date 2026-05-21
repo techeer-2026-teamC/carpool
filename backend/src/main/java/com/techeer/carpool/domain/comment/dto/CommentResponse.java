@@ -16,6 +16,7 @@ public class CommentResponse {
     private String nickname;
     private String content;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     public static CommentResponse from(Comment comment, String nickname) {
         return CommentResponse.builder()
@@ -25,6 +26,7 @@ public class CommentResponse {
                 .nickname(nickname)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
+                .updatedAt(comment.getUpdatedAt())
                 .build();
     }
 }

@@ -4,8 +4,7 @@ import com.techeer.carpool.domain.application.entity.Application;
 import com.techeer.carpool.domain.application.entity.ApplicationStatus;
 import com.techeer.carpool.domain.application.repository.ApplicationRepository;
 import com.techeer.carpool.domain.comment.dto.CommentResponse;
-import com.techeer.carpool.domain.comment.entity.Comment;
-import com.techeer.carpool.domain.comment.repository.CommentRepository;
+import com.techeer.carpool.domain.comment.service.CommentService;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
 import com.techeer.carpool.domain.notification.dto.NotificationPayload;
@@ -41,7 +40,7 @@ public class PostService {
     private final MemberRepository memberRepository;
     private final TagRepository tagRepository;
     private final ApplicationRepository applicationRepository;
-    private final CommentRepository commentRepository;
+    private final CommentService commentService;
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
 
@@ -84,20 +83,9 @@ public class PostService {
         Post post = postRepository.findByIdAndDeletedFalseWithTags(id)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.POST_NOT_FOUND));
 
-        List<Comment> comments = commentRepository.findByPostIdAndDeletedFalseOrderByCreatedAtAsc(id);
+        List<CommentResponse> commentResponses = commentService.getCommentsByPostId(id);
 
-        Set<Long> allMemberIds = new java.util.HashSet<>();
-        allMemberIds.add(post.getMemberId());
-        comments.forEach(c -> allMemberIds.add(c.getMemberId()));
-
-        Map<Long, String> nicknameMap = memberRepository.findAllById(allMemberIds).stream()
-                .collect(Collectors.toMap(Member::getId, Member::getNickname));
-
-        List<CommentResponse> commentResponses = comments.stream()
-                .map(c -> CommentResponse.from(c, nicknameMap.getOrDefault(c.getMemberId(), "알 수 없음")))
-                .collect(Collectors.toList());
-
-        return PostDetailResponse.from(post, nicknameMap.getOrDefault(post.getMemberId(), "알 수 없음"), commentResponses);
+        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), commentResponses);
     }
 
     @Transactional
