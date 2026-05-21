@@ -16,8 +16,8 @@ public class DriverResponse {
     private String carModel;
     private CarColor carColor;
     private String carColorLabel;
-    private String carColorHexCode;
     private String carNumber;
+    private double averageRating;
     private LocalDateTime createdAt;
 
     public static DriverResponse from(Driver driver) {
@@ -27,8 +27,8 @@ public class DriverResponse {
                 .carModel(driver.getCarModel())
                 .carColor(driver.getCarColor())
                 .carColorLabel(driver.getCarColor() != null ? driver.getCarColor().getLabel() : null)
-                .carColorHexCode(driver.getCarColor() != null ? driver.getCarColor().getHexCode() : null)
                 .carNumber(driver.getCarNumber())
+                .averageRating(driver.getAverageRating())
                 .createdAt(driver.getCreatedAt())
                 .build();
     }

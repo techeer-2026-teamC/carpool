@@ -1,6 +1,8 @@
 package com.techeer.carpool.domain.driver.entity;
 
 import com.techeer.carpool.global.common.entity.SoftDeletableEntity;
+import com.techeer.carpool.global.exception.CarpoolException;
+import com.techeer.carpool.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
@@ -31,6 +33,12 @@ public class Driver extends SoftDeletableEntity {
     @Column(nullable = false, unique = true, length = 20)
     private String carNumber;
 
+    @Column(nullable = false)
+    private int totalRatingSum = 0;
+
+    @Column(nullable = false)
+    private int reviewCount = 0;
+
     @Builder
     public Driver(Long memberId, String carModel, CarColor carColor, String carNumber) {
         this.memberId = memberId;
@@ -43,5 +51,17 @@ public class Driver extends SoftDeletableEntity {
         this.carModel = carModel;
         this.carColor = carColor;
         this.carNumber = carNumber;
+    }
+
+    public void addRating(int rating) {
+        if (rating < 1 || rating > 5) {
+            throw new CarpoolException(ErrorCode.INVALID_INPUT);
+        }
+        this.totalRatingSum += rating;
+        this.reviewCount++;
+    }
+
+    public double getAverageRating() {
+        return reviewCount == 0 ? 0.0 : (double) totalRatingSum / reviewCount;
     }
 }

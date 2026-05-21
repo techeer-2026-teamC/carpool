@@ -1,8 +1,7 @@
 package com.techeer.carpool.domain.driver.controller;
 
-import com.techeer.carpool.domain.driver.dto.DriverRegisterRequest;
+import com.techeer.carpool.domain.driver.dto.DriverRequest;
 import com.techeer.carpool.domain.driver.dto.DriverResponse;
-import com.techeer.carpool.domain.driver.dto.DriverUpdateRequest;
 import com.techeer.carpool.domain.driver.service.DriverService;
 import com.techeer.carpool.global.common.ApiResponse;
 import jakarta.validation.Valid;
@@ -21,7 +20,7 @@ public class DriverController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<DriverResponse>> registerDriver(
-            @Valid @RequestBody DriverRegisterRequest request,
+            @Valid @RequestBody DriverRequest request,
             Authentication authentication) {
         Long memberId = (Long) authentication.getPrincipal();
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -36,7 +35,7 @@ public class DriverController {
 
     @PutMapping
     public ResponseEntity<ApiResponse<DriverResponse>> updateDriver(
-            @Valid @RequestBody DriverUpdateRequest request,
+            @Valid @RequestBody DriverRequest request,
             Authentication authentication) {
         Long memberId = (Long) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.of("운전자 정보가 수정되었습니다.", driverService.update(memberId, request)));

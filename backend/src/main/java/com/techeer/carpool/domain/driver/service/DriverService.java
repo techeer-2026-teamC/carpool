@@ -1,8 +1,7 @@
 package com.techeer.carpool.domain.driver.service;
 
-import com.techeer.carpool.domain.driver.dto.DriverRegisterRequest;
+import com.techeer.carpool.domain.driver.dto.DriverRequest;
 import com.techeer.carpool.domain.driver.dto.DriverResponse;
-import com.techeer.carpool.domain.driver.dto.DriverUpdateRequest;
 import com.techeer.carpool.domain.driver.entity.Driver;
 import com.techeer.carpool.domain.driver.repository.DriverRepository;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
@@ -20,7 +19,7 @@ public class DriverService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public DriverResponse register(Long memberId, DriverRegisterRequest request) {
+    public DriverResponse register(Long memberId, DriverRequest request) {
         memberRepository.findByIdAndDeletedFalse(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
 
@@ -51,7 +50,7 @@ public class DriverService {
     }
 
     @Transactional
-    public DriverResponse update(Long memberId, DriverUpdateRequest request) {
+    public DriverResponse update(Long memberId, DriverRequest request) {
         Driver driver = driverRepository.findByMemberIdAndDeletedFalse(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
 

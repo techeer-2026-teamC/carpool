@@ -1,7 +1,7 @@
 package com.techeer.carpool.domain.review.service;
 
-import com.techeer.carpool.domain.member.entity.Member;
-import com.techeer.carpool.domain.member.repository.MemberRepository;
+import com.techeer.carpool.domain.driver.entity.Driver;
+import com.techeer.carpool.domain.driver.repository.DriverRepository;
 import com.techeer.carpool.domain.review.dto.ReviewResponse;
 import com.techeer.carpool.domain.review.repository.ReviewRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 public class ReviewQueryService {
 
     private final ReviewRepository reviewRepository;
-    private final MemberRepository memberRepository;
+    private final DriverRepository driverRepository;
 
     @Transactional(readOnly = true)
     public List<ReviewResponse> getMyReviews(Long reviewerId) {
@@ -36,8 +36,8 @@ public class ReviewQueryService {
 
     @Transactional(readOnly = true)
     public double getDriverRating(Long driverId) {
-        Member driver = memberRepository.findByIdAndDeletedFalse(driverId)
-                .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
+        Driver driver = driverRepository.findByMemberIdAndDeletedFalse(driverId)
+                .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
         return driver.getAverageRating();
     }
 }

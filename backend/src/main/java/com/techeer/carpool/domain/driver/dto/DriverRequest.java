@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 
 @Getter
-public class DriverRegisterRequest {
+public class DriverRequest {
 
     @NotBlank(message = "차량 모델을 입력해주세요.")
     private String carModel;

@@ -365,8 +365,10 @@ public class LocalDataInitializer implements CommandLineRunner {
                 .rating(5)
                 .comment("운전이 안전하고 친절했어요! 다음에도 이용하고 싶습니다.")
                 .build());
-        test.addRating(5);
-        memberRepository.save(test);
+        driverRepository.findByMemberIdAndDeletedFalse(test.getId()).ifPresent(d -> {
+            d.addRating(5);
+            driverRepository.save(d);
+        });
 
         // ─── COMPLETED + 평점 미등록 ───
         // admin이 드라이버, test가 탑승 완료 + 평점 안 남김 → "★ 평가하기" 버튼 표시
