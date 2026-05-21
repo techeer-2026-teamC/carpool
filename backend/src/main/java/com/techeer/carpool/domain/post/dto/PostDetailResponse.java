@@ -1,5 +1,6 @@
 package com.techeer.carpool.domain.post.dto;
 
+import com.techeer.carpool.domain.comment.dto.CommentResponse;
 import com.techeer.carpool.domain.post.entity.Post;
 import com.techeer.carpool.domain.post.entity.PostStatus;
 import lombok.Builder;
@@ -30,10 +31,11 @@ public class PostDetailResponse {
     private boolean autoAccept;
     private Integer price;
     private List<TagResponse> tags;
+    private List<CommentResponse> comments;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static PostDetailResponse from(Post post, String nickname) {
+    public static PostDetailResponse from(Post post, String nickname, List<CommentResponse> comments) {
         return PostDetailResponse.builder()
                 .id(post.getId())
                 .memberId(post.getMemberId())
@@ -53,6 +55,7 @@ public class PostDetailResponse {
                 .autoAccept(post.isAutoAccept())
                 .price(post.getPrice())
                 .tags(post.getTags().stream().map(TagResponse::from).toList())
+                .comments(comments)
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
                 .build();

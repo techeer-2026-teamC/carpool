@@ -2,9 +2,11 @@ package com.techeer.carpool.domain.comment.controller;
 
 import com.techeer.carpool.domain.comment.dto.CommentCreateRequest;
 import com.techeer.carpool.domain.comment.dto.CommentResponse;
+import com.techeer.carpool.domain.comment.dto.CommentUpdateRequest;
 import com.techeer.carpool.domain.comment.service.CommentCreateService;
 import com.techeer.carpool.domain.comment.service.CommentDeleteService;
 import com.techeer.carpool.domain.comment.service.CommentReadService;
+import com.techeer.carpool.domain.comment.service.CommentUpdateService;
 import com.techeer.carpool.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class CommentController {
 
     private final CommentCreateService commentCreateService;
     private final CommentReadService commentReadService;
+    private final CommentUpdateService commentUpdateService;
     private final CommentDeleteService commentDeleteService;
 
     @PostMapping("/posts/{postId}/comments")
@@ -37,6 +40,15 @@ public class CommentController {
     @GetMapping("/posts/{postId}/comments")
     public ResponseEntity<ApiResponse<List<CommentResponse>>> getComments(@PathVariable Long postId) {
         return ResponseEntity.ok(ApiResponse.of("댓글 목록 조회 성공", commentReadService.getCommentsByPostId(postId)));
+    }
+
+    @PutMapping("/comments/{commentId}")
+    public ResponseEntity<ApiResponse<CommentResponse>> updateComment(
+            @PathVariable Long commentId,
+            @Valid @RequestBody CommentUpdateRequest request,
+            Authentication authentication) {
+        Long memberId = (Long) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.of("댓글이 수정되었습니다.", commentUpdateService.updateComment(commentId, request, memberId)));
     }
 
     @DeleteMapping("/comments/{commentId}")

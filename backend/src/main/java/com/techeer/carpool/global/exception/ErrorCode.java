@@ -7,7 +7,7 @@ public enum ErrorCode {
     POST_NOT_FOUND("POST_001", "게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     POST_FORBIDDEN("POST_002", "게시글 수정/삭제 권한이 없습니다.", HttpStatus.FORBIDDEN),
     COMMENT_NOT_FOUND("COMMENT_001", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    COMMENT_FORBIDDEN("COMMENT_002", "댓글 삭제 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    COMMENT_FORBIDDEN("COMMENT_002", "댓글 수정/삭제 권한이 없습니다.", HttpStatus.FORBIDDEN),
     APPLICATION_NOT_FOUND("APPLICATION_001", "신청을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     APPLICATION_DUPLICATE("APPLICATION_002", "이미 신청한 게시글입니다.", HttpStatus.CONFLICT),
     APPLICATION_SELF("APPLICATION_003", "본인 게시글에는 신청할 수 없습니다.", HttpStatus.BAD_REQUEST),
