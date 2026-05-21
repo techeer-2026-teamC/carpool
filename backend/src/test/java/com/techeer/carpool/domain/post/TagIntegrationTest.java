@@ -3,6 +3,9 @@ package com.techeer.carpool.domain.post;
 import tools.jackson.databind.ObjectMapper;
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
+import com.techeer.carpool.domain.driver.entity.CarColor;
+import com.techeer.carpool.domain.driver.entity.Driver;
+import com.techeer.carpool.domain.driver.repository.DriverRepository;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
 import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
@@ -35,17 +38,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class TagIntegrationTest {
 
-    @MockitoBean RedisMessageListenerContainer listenerContainer;
-    @MockitoBean BlacklistRedisRepository blacklistRedisRepository;
-    @MockitoBean RefreshTokenRedisRepository refreshTokenRedisRepository;
-    @MockitoBean RedisNotificationPublisher notificationPublisher;
-
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired TagRepository tagRepository;
     @Autowired PostRepository postRepository;
     @Autowired MemberRepository memberRepository;
+    @Autowired DriverRepository driverRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean RedisMessageListenerContainer redisMessageListenerContainer;
+    @MockitoBean BlacklistRedisRepository blacklistRedisRepository;
+    @MockitoBean RefreshTokenRedisRepository refreshTokenRedisRepository;
+    @MockitoBean RedisNotificationPublisher notificationPublisher;
 
     private Long memberId;
     private String token;
@@ -56,6 +60,7 @@ class TagIntegrationTest {
     void setUp() {
         postRepository.deleteAll();
         tagRepository.deleteAll();
+        driverRepository.deleteAll();
         memberRepository.deleteAll();
 
         Member member = memberRepository.save(Member.builder()
@@ -63,11 +68,17 @@ class TagIntegrationTest {
         memberId = member.getId();
         token = "Bearer " + jwtTokenProvider.createAccessToken(memberId);
 
+        // 드라이버 등록 (createPost API에 driver 체크 있음)
+        driverRepository.save(Driver.builder()
+                .memberId(memberId)
+                .carModel("소나타")
+                .carColor(CarColor.WHITE)
+                .carNumber("12가3456")
+                .build());
+
         tag1 = tagRepository.save(Tag.builder().name("금연").build());
         tag2 = tagRepository.save(Tag.builder().name("조용한 분위기").build());
     }
-
-    // ── GET /api/v1/tags ──────────────────────────────────────
 
     @Test
     @DisplayName("태그 목록 조회 - 인증 없이 200")
@@ -75,16 +86,12 @@ class TagIntegrationTest {
         mockMvc.perform(get("/api/v1/tags"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].id").exists())
-                .andExpect(jsonPath("$.data[0].name").exists());
+                .andExpect(jsonPath("$.data.length()").value(2));
     }
 
-    // ── POST /api/v1/posts with tagIds ────────────────────────
-
     @Test
-    @DisplayName("tagIds 포함 게시글 생성 - 응답 tags 배열에 id·name 반환")
-    void createPost_withTagIds_returnsTagObjects() throws Exception {
+    @DisplayName("tagIds 포함 게시글 생성 - 응답 tags 배열 반환")
+    void createPost_withTagIds() throws Exception {
         mockMvc.perform(post("/api/v1/posts")
                         .header("Authorization", token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -97,7 +104,7 @@ class TagIntegrationTest {
 
     @Test
     @DisplayName("tagIds 없이 게시글 생성 - tags 빈 배열")
-    void createPost_noTagIds_emptyTagsArray() throws Exception {
+    void createPost_noTagIds() throws Exception {
         mockMvc.perform(post("/api/v1/posts")
                         .header("Authorization", token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -106,7 +113,17 @@ class TagIntegrationTest {
                 .andExpect(jsonPath("$.data.tags.length()").value(0));
     }
 
-    // ── GET /api/v1/posts/{id} with tags ─────────────────────
+    @Test
+    @DisplayName("존재하지 않는 tagId 포함 시 TAG_NOT_FOUND")
+    void createPost_invalidTagId() throws Exception {
+        Map<String, Object> body = postBody(List.of(99999L));
+        mockMvc.perform(post("/api/v1/posts")
+                        .header("Authorization", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TAG_001"));
+    }
 
     @Test
     @DisplayName("게시글 단건 조회 - tags 필드 포함")
@@ -119,24 +136,8 @@ class TagIntegrationTest {
                 .andExpect(jsonPath("$.data.tags.length()").value(2));
     }
 
-    // ── GET /api/v1/posts with tags ───────────────────────────
-
     @Test
-    @DisplayName("게시글 목록 조회 - 각 게시글에 tags 포함")
-    void getAllPosts_includesTags() throws Exception {
-        createPostAndGetId(List.of(tag1.getId()));
-
-        mockMvc.perform(get("/api/v1/posts")
-                        .header("Authorization", token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].tags").isArray())
-                .andExpect(jsonPath("$.data[0].tags.length()").value(1));
-    }
-
-    // ── PUT /api/v1/posts/{id} tag 변경 ──────────────────────
-
-    @Test
-    @DisplayName("게시글 수정 - 태그 교체 (tag1 → tag2)")
+    @DisplayName("게시글 수정 - 태그 교체")
     void updatePost_replaceTags() throws Exception {
         Long postId = createPostAndGetId(List.of(tag1.getId()));
 

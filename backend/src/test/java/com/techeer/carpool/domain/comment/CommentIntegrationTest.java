@@ -1,7 +1,7 @@
 package com.techeer.carpool.domain.comment;
 
 import tools.jackson.databind.ObjectMapper;
-import com.techeer.carpool.domain.comment.dto.CommentCreateRequest;
+import com.techeer.carpool.domain.comment.dto.CommentRequest;
 import com.techeer.carpool.domain.comment.entity.Comment;
 import com.techeer.carpool.domain.comment.repository.CommentRepository;
 import com.techeer.carpool.domain.member.entity.Member;
@@ -86,7 +86,7 @@ class CommentIntegrationTest {
     @Test
     @DisplayName("댓글 작성 성공")
     void createComment_success() throws Exception {
-        CommentCreateRequest request = new CommentCreateRequest();
+        CommentRequest request = new CommentRequest();
         setField(request, "content", "탑승 신청합니다!");
 
         mockMvc.perform(post("/api/v1/posts/{postId}/comments", postId)
@@ -118,7 +118,7 @@ class CommentIntegrationTest {
     @Test
     @DisplayName("존재하지 않는 게시글에 댓글 작성 시 404")
     void createComment_postNotFound() throws Exception {
-        CommentCreateRequest request = new CommentCreateRequest();
+        CommentRequest request = new CommentRequest();
         setField(request, "content", "댓글");
 
         mockMvc.perform(post("/api/v1/posts/{postId}/comments", 999L)
@@ -156,7 +156,7 @@ class CommentIntegrationTest {
     @Test
     @DisplayName("빈 내용으로 댓글 작성 시 400")
     void createComment_emptyContent() throws Exception {
-        CommentCreateRequest request = new CommentCreateRequest();
+        CommentRequest request = new CommentRequest();
         setField(request, "content", "");
 
         mockMvc.perform(post("/api/v1/posts/{postId}/comments", postId)

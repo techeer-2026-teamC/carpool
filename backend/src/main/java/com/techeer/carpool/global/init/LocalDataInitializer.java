@@ -274,6 +274,7 @@ public class LocalDataInitializer implements CommandLineRunner {
         posts.stream()
                 .filter(p -> "서울역 → 수원역".equals(p.getTitle()))
                 .findFirst()
+                .flatMap(p -> postRepository.findById(p.getId()))
                 .ifPresent(p -> {
                     p.refreshDepartureTime(LocalDateTime.now().plusMinutes(20));
                     postRepository.save(p);

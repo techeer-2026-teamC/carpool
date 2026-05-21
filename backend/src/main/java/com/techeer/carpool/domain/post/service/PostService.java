@@ -5,6 +5,7 @@ import com.techeer.carpool.domain.application.entity.ApplicationStatus;
 import com.techeer.carpool.domain.application.repository.ApplicationRepository;
 import com.techeer.carpool.domain.comment.dto.CommentResponse;
 import com.techeer.carpool.domain.comment.service.CommentService;
+import com.techeer.carpool.domain.driver.repository.DriverRepository;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
 import com.techeer.carpool.domain.notification.dto.NotificationPayload;
@@ -41,11 +42,15 @@ public class PostService {
     private final TagRepository tagRepository;
     private final ApplicationRepository applicationRepository;
     private final CommentService commentService;
+    private final DriverRepository driverRepository;
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
 
     @Transactional
     public PostDetailResponse createPost(PostCreateRequest request, Long memberId) {
+        driverRepository.findByMemberIdAndDeletedFalse(memberId)
+                .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
+
         List<Tag> tags = resolveTags(request.getTagIds());
         Post post = Post.builder()
                 .memberId(memberId)
@@ -119,9 +124,8 @@ public class PostService {
                 .orElseThrow(() -> new CarpoolException(ErrorCode.POST_NOT_FOUND));
         validateOwner(post, requesterId);
 
-        List<Long> acceptedIds = applicationRepository
-                .findByPostIdAndStatus(id, ApplicationStatus.ACCEPTED)
-                .stream()
+        List<Application> acceptedApps = applicationRepository.findByPostIdAndStatus(id, ApplicationStatus.ACCEPTED);
+        List<Long> acceptedIds = acceptedApps.stream()
                 .map(Application::getApplicantId)
                 .collect(Collectors.toList());
 
@@ -133,6 +137,8 @@ public class PostService {
                 .message("신청한 카풀 게시글이 취소되었습니다.")
                 .data(Map.of("postId", id))
                 .build());
+
+        acceptedApps.forEach(Application::reject);
 
         List<Application> pendingApps = applicationRepository.findByPostIdAndStatus(id, ApplicationStatus.PENDING);
         pendingApps.forEach(Application::reject);
