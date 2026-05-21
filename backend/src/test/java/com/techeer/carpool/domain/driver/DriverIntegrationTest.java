@@ -4,20 +4,20 @@ import tools.jackson.databind.ObjectMapper;
 import com.techeer.carpool.domain.driver.repository.DriverRepository;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
-import com.techeer.carpool.domain.driver.entity.CarColor;
-import com.techeer.carpool.domain.driver.entity.VehicleOption;
-import com.techeer.carpool.domain.driver.repository.VehicleOptionRepository;
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
+import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.mockito.Mock;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -27,32 +27,28 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class DriverIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired MemberRepository memberRepository;
     @Autowired DriverRepository driverRepository;
-    @Autowired VehicleOptionRepository vehicleOptionRepository;
     @Autowired PasswordEncoder passwordEncoder;
 
-    @Mock RefreshTokenRedisRepository refreshTokenRedisRepository;
-    @Mock BlacklistRedisRepository blacklistRedisRepository;
+    @MockitoBean RedisMessageListenerContainer redisMessageListenerContainer;
+    @MockitoBean RefreshTokenRedisRepository refreshTokenRedisRepository;
+    @MockitoBean BlacklistRedisRepository blacklistRedisRepository;
+    @MockitoBean RedisNotificationPublisher notificationPublisher;
 
-    private Long vehicleOptionId;
     private String accessToken;
 
     @BeforeEach
     void setUp() throws Exception {
         driverRepository.deleteAll();
         memberRepository.deleteAll();
-        vehicleOptionRepository.deleteAll();
-
-        VehicleOption vehicleOption = vehicleOptionRepository.save(VehicleOption.builder()
-                .brand("현대").model("아반떼").color(CarColor.WHITE).build());
-        vehicleOptionId = vehicleOption.getId();
 
         memberRepository.save(Member.builder()
                 .email("driver@test.com")
@@ -77,7 +73,6 @@ class DriverIntegrationTest {
     void tearDown() {
         driverRepository.deleteAll();
         memberRepository.deleteAll();
-        vehicleOptionRepository.deleteAll();
     }
 
     @Test
@@ -86,14 +81,15 @@ class DriverIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", vehicleOptionId,
+                                "carModel", "소나타",
+                                "carColor", "WHITE",
                                 "carNumber", "12가3456"
                         ))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.carNumber").value("12가3456"))
-                .andExpect(jsonPath("$.data.model").value("아반떼"))
-                .andExpect(jsonPath("$.data.color").value("WHITE"))
-                .andExpect(jsonPath("$.data.colorLabel").value("흰색"));
+                .andExpect(jsonPath("$.data.carModel").value("소나타"))
+                .andExpect(jsonPath("$.data.carColor").value("WHITE"))
+                .andExpect(jsonPath("$.data.carColorLabel").value("흰색"));
     }
 
     @Test
@@ -104,7 +100,7 @@ class DriverIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", vehicleOptionId,
+                                "carModel", "K5",
                                 "carNumber", "99나9999"
                         ))))
                 .andExpect(status().isConflict())
@@ -137,24 +133,23 @@ class DriverIntegrationTest {
                         .header("Authorization", "Bearer " + secondToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", vehicleOptionId,
+                                "carModel", "소나타",
                                 "carNumber", "12가3456"
                         ))))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("DRIVER_004"));
+                .andExpect(jsonPath("$.code").value("DRIVER_002"));
     }
 
     @Test
-    void registerDriver_invalidVehicleOptionId_returns404() throws Exception {
+    void registerDriver_missingCarModel_returns400() throws Exception {
         mockMvc.perform(post("/api/v1/drivers")
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", 9999L,
                                 "carNumber", "12가3456"
                         ))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("DRIVER_002"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_001"));
     }
 
     @Test
@@ -163,7 +158,7 @@ class DriverIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", vehicleOptionId
+                                "carModel", "소나타"
                         ))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_001"));
@@ -174,7 +169,7 @@ class DriverIntegrationTest {
         mockMvc.perform(post("/api/v1/drivers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", vehicleOptionId,
+                                "carModel", "소나타",
                                 "carNumber", "12가3456"
                         ))))
                 .andExpect(status().isUnauthorized());
@@ -188,7 +183,7 @@ class DriverIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.carNumber").value("12가3456"))
-                .andExpect(jsonPath("$.data.model").value("아반떼"));
+                .andExpect(jsonPath("$.data.carModel").value("소나타"));
     }
 
     @Test
@@ -196,27 +191,25 @@ class DriverIntegrationTest {
         mockMvc.perform(get("/api/v1/drivers/me")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("DRIVER_005"));
+                .andExpect(jsonPath("$.code").value("DRIVER_003"));
     }
 
     @Test
     void updateDriver_success() throws Exception {
         registerDriver("12가3456");
 
-        VehicleOption newOption = vehicleOptionRepository.save(VehicleOption.builder()
-                .brand("기아").model("K5").color(CarColor.BLACK).build());
-
         mockMvc.perform(put("/api/v1/drivers")
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", newOption.getId(),
+                                "carModel", "K5",
+                                "carColor", "BLACK",
                                 "carNumber", "99나9999"
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.carNumber").value("99나9999"))
-                .andExpect(jsonPath("$.data.model").value("K5"))
-                .andExpect(jsonPath("$.data.color").value("BLACK"));
+                .andExpect(jsonPath("$.data.carModel").value("K5"))
+                .andExpect(jsonPath("$.data.carColor").value("BLACK"));
     }
 
     @Test
@@ -225,32 +218,11 @@ class DriverIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", vehicleOptionId,
+                                "carModel", "소나타",
                                 "carNumber", "12가3456"
                         ))))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("DRIVER_005"));
-    }
-
-    @Test
-    void deleteDriver_success() throws Exception {
-        registerDriver("12가3456");
-
-        mockMvc.perform(delete("/api/v1/drivers")
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/v1/drivers/me")
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void deleteDriver_notRegistered_returns404() throws Exception {
-        mockMvc.perform(delete("/api/v1/drivers")
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("DRIVER_005"));
+                .andExpect(jsonPath("$.code").value("DRIVER_003"));
     }
 
     private void registerDriver(String carNumber) throws Exception {
@@ -258,7 +230,7 @@ class DriverIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "vehicleOptionId", vehicleOptionId,
+                                "carModel", "소나타",
                                 "carNumber", carNumber
                         ))))
                 .andExpect(status().isCreated());

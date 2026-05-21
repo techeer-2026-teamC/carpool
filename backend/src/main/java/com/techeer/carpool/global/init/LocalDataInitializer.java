@@ -22,8 +22,6 @@ import com.techeer.carpool.domain.ride.entity.PassengerStatus;
 import com.techeer.carpool.domain.ride.repository.RidePassengerRepository;
 import com.techeer.carpool.domain.ride.repository.RideRepository;
 import com.techeer.carpool.domain.driver.entity.CarColor;
-import com.techeer.carpool.domain.driver.entity.VehicleOption;
-import com.techeer.carpool.domain.driver.repository.VehicleOptionRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +49,6 @@ public class LocalDataInitializer implements CommandLineRunner {
     private final RidePassengerRepository ridePassengerRepository;
     private final ReviewRepository reviewRepository;
     private final PasswordEncoder passwordEncoder;
-    private final VehicleOptionRepository vehicleOptionRepository;
     private final DriverRepository driverRepository;
     private final TagRepository tagRepository;
 
@@ -60,7 +57,7 @@ public class LocalDataInitializer implements CommandLineRunner {
         Member test  = createMemberIfNotExists("test@carpool.com",  "password1234", "테스트유저");
         Member admin = createMemberIfNotExists("admin@carpool.com", "admin1234!",   "관리자");
 
-        seedDrivers(test, admin, initVehicleOptions());
+        seedDrivers(test, admin);
 
         Map<String, Tag> tagMap = seedTags();
 
@@ -422,49 +419,21 @@ public class LocalDataInitializer implements CommandLineRunner {
 
     // ── Drivers ────────────────────────────────────────────────────────────────
 
-    private void seedDrivers(Member test, Member admin, List<VehicleOption> vehicleOptions) {
+    private void seedDrivers(Member test, Member admin) {
         if (driverRepository.count() > 0) return;
 
         driverRepository.save(Driver.builder()
                 .memberId(test.getId())
-                .vehicleOptionId(vehicleOptions.get(0).getId())
+                .carModel("아반떼")
+                .carColor(CarColor.WHITE)
                 .carNumber("12가3456")
                 .build());
 
-        VehicleOption adminVehicle = vehicleOptions.stream()
-                .filter(v -> "기아".equals(v.getBrand()) && "K5".equals(v.getModel()))
-                .findFirst()
-                .orElse(vehicleOptions.get(0));
         driverRepository.save(Driver.builder()
                 .memberId(admin.getId())
-                .vehicleOptionId(adminVehicle.getId())
+                .carModel("K5")
+                .carColor(CarColor.BLACK)
                 .carNumber("99나8765")
                 .build());
-    }
-
-    // ── Vehicle Options ────────────────────────────────────────────────────────
-
-    private List<VehicleOption> initVehicleOptions() {
-        if (vehicleOptionRepository.count() > 0) return vehicleOptionRepository.findAll();
-
-        List<String[]> models = List.of(
-                new String[]{"현대", "아반떼"},
-                new String[]{"현대", "소나타"},
-                new String[]{"현대", "그랜저"},
-                new String[]{"기아", "K5"},
-                new String[]{"기아", "스포티지"},
-                new String[]{"기아", "카니발"},
-                new String[]{"BMW", "3시리즈"},
-                new String[]{"벤츠", "E클래스"}
-        );
-
-        List<VehicleOption> options = new java.util.ArrayList<>();
-        for (String[] m : models) {
-            for (CarColor color : CarColor.values()) {
-                options.add(VehicleOption.builder()
-                        .brand(m[0]).model(m[1]).color(color).build());
-            }
-        }
-        return vehicleOptionRepository.saveAll(options);
     }
 }

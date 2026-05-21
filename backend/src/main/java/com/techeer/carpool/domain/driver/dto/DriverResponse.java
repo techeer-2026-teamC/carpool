@@ -1,8 +1,7 @@
 package com.techeer.carpool.domain.driver.dto;
 
-import com.techeer.carpool.domain.driver.entity.Driver;
 import com.techeer.carpool.domain.driver.entity.CarColor;
-import com.techeer.carpool.domain.driver.entity.VehicleOption;
+import com.techeer.carpool.domain.driver.entity.Driver;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -14,23 +13,21 @@ public class DriverResponse {
 
     private Long driverId;
     private Long memberId;
-    private String brand;
-    private String model;
-    private CarColor color;
-    private String colorLabel;
-    private String colorHexCode;
+    private String carModel;
+    private CarColor carColor;
+    private String carColorLabel;
+    private String carColorHexCode;
     private String carNumber;
     private LocalDateTime createdAt;
 
-    public static DriverResponse from(Driver driver, VehicleOption vehicleOption) {
+    public static DriverResponse from(Driver driver) {
         return DriverResponse.builder()
                 .driverId(driver.getDriverId())
                 .memberId(driver.getMemberId())
-                .brand(vehicleOption.getBrand())
-                .model(vehicleOption.getModel())
-                .color(vehicleOption.getColor())
-                .colorLabel(vehicleOption.getColor().getLabel())
-                .colorHexCode(vehicleOption.getColor().getHexCode())
+                .carModel(driver.getCarModel())
+                .carColor(driver.getCarColor())
+                .carColorLabel(driver.getCarColor() != null ? driver.getCarColor().getLabel() : null)
+                .carColorHexCode(driver.getCarColor() != null ? driver.getCarColor().getHexCode() : null)
                 .carNumber(driver.getCarNumber())
                 .createdAt(driver.getCreatedAt())
                 .build();
