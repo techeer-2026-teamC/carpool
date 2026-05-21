@@ -5,10 +5,12 @@ import com.techeer.carpool.domain.member.dto.ProfileUpdateRequest;
 import com.techeer.carpool.domain.member.service.MemberProfileService;
 import com.techeer.carpool.domain.member.service.MemberWithdrawService;
 import com.techeer.carpool.global.common.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -42,9 +44,20 @@ public class MemberController {
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<ApiResponse<Void>> withdraw(Authentication authentication) {
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+            Authentication authentication,
+            HttpServletRequest request) {
         Long memberId = (Long) authentication.getPrincipal();
-        memberWithdrawService.withdraw(memberId);
+        String token = resolveToken(request);
+        memberWithdrawService.withdraw(memberId, token);
         return ResponseEntity.ok(ApiResponse.of("회원 탈퇴가 완료되었습니다."));
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
     }
 }
