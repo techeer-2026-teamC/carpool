@@ -25,7 +25,9 @@ export const options = {
 
 export function setup() {
     const res = http.get(`${BASE_URL}/api/v1/posts`);
-    const posts = res.status === 200 ? (res.json('data') || []) : [];
+    if (res.status !== 200) return { postIds: [] };
+    const page = res.json('data');
+    const posts = (page && page.content) ? page.content : (Array.isArray(page) ? page : []);
     return { postIds: posts.map(p => p.id) };
 }
 
