@@ -37,6 +37,7 @@ public enum ErrorCode {
     MEMBER_FORBIDDEN("MEMBER_001", "본인의 프로필만 조회할 수 있습니다.", HttpStatus.FORBIDDEN),
 
     POST_ALREADY_CLOSED("POST_003", "이미 마감된 게시글입니다.", HttpStatus.CONFLICT),
+    POST_CONFLICT("POST_004", "다른 요청과 충돌이 발생했습니다. 잠시 후 다시 시도해주세요.", HttpStatus.CONFLICT),
 
     REVIEW_ALREADY_EXISTS("REVIEW_001", "이미 평가한 운행입니다.", HttpStatus.CONFLICT),
     REVIEW_FORBIDDEN("REVIEW_002", "평가 권한이 없습니다.", HttpStatus.FORBIDDEN),

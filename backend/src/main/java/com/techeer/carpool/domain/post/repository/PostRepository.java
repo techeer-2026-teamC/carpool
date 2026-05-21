@@ -20,7 +20,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p LEFT JOIN FETCH p.tags WHERE p.id = :id AND p.deleted = false")
     Optional<Post> findByIdAndDeletedFalseWithTags(@Param("id") Long id);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Lock(LockModeType.OPTIMISTIC)
     @Query("SELECT p FROM Post p WHERE p.id = :id AND p.deleted = false")
     Optional<Post> findByIdAndDeletedFalseWithLock(@Param("id") Long id);
 }
