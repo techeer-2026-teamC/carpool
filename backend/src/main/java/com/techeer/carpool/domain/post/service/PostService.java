@@ -17,6 +17,8 @@ import com.techeer.carpool.domain.post.dto.PostCreateRequest;
 import com.techeer.carpool.domain.post.dto.PostDetailResponse;
 import com.techeer.carpool.domain.post.dto.PostSummaryResponse;
 import com.techeer.carpool.domain.post.dto.PostUpdateRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import com.techeer.carpool.domain.post.entity.Post;
 import com.techeer.carpool.domain.post.entity.PostUpdateCommand;
 import com.techeer.carpool.domain.post.entity.Tag;
@@ -24,6 +26,7 @@ import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.domain.post.repository.TagRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
+import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +48,7 @@ public class PostService {
     private final DriverRepository driverRepository;
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
+    private final CarpoolMetrics carpoolMetrics;
 
     @Transactional
     public PostDetailResponse createPost(PostCreateRequest request, Long memberId) {
@@ -69,6 +73,7 @@ public class PostService {
                 .tags(tags)
                 .build();
         Post saved = postRepository.save(post);
+        carpoolMetrics.incrementPostCreated();
         return PostDetailResponse.from(saved, fetchNickname(saved.getMemberId()), List.of());
     }
 
@@ -81,6 +86,25 @@ public class PostService {
         return posts.stream()
                 .map(p -> PostSummaryResponse.from(p, nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음")))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PostSummaryResponse> getPagedPosts(Pageable pageable) {
+        // 1단계: SQL LIMIT/OFFSET으로 페이지 ID 목록 조회
+        Page<Post> postPage = postRepository.findPageByDeletedFalse(pageable);
+        List<Long> ids = postPage.stream().map(Post::getId).collect(Collectors.toList());
+
+        // 2단계: 해당 ID들만 tags 배치 로드 (N+1 방지)
+        Map<Long, Post> postsWithTags = postRepository.findByIdsWithTags(ids).stream()
+                .collect(Collectors.toMap(Post::getId, p -> p));
+
+        Set<Long> memberIds = postPage.stream().map(Post::getMemberId).collect(Collectors.toSet());
+        Map<Long, String> nicknameMap = memberRepository.findAllById(memberIds).stream()
+                .collect(Collectors.toMap(Member::getId, Member::getNickname));
+
+        return postPage.map(p -> PostSummaryResponse.from(
+                postsWithTags.getOrDefault(p.getId(), p),
+                nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음")));
     }
 
     @Transactional(readOnly = true)

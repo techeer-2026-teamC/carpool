@@ -22,24 +22,38 @@ services:
     ports:
       - "6379:6379"
 
-  app:
-    image: ${DOCKER_USERNAME}/carpool:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: carpool-app
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: carpool-prometheus
     ports:
-      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-remote-write-receiver'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: carpool-grafana
+    ports:
+      - "3000:3000"
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
-      DB_URL: jdbc:postgresql://carpool-db:5432/carpool
-      DB_USERNAME: user
-      DB_PASSWORD: password
-      JWT_SECRET: ${JWT_SECRET}
-      REDIS_HOST: carpool-redis
-      SPRING_REDIS_PORT: 6379
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:

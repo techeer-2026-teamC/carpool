@@ -11,6 +11,7 @@ import com.techeer.carpool.domain.review.entity.Review;
 import com.techeer.carpool.domain.review.repository.ReviewRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
+import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class ReviewCreateService {
     private final ReviewRepository reviewRepository;
     private final RideRepository rideRepository;
     private final DriverRepository driverRepository;
+    private final CarpoolMetrics carpoolMetrics;
 
     @Transactional
     public ReviewResponse createReview(Long rideId, ReviewCreateRequest request, Long reviewerId) {
@@ -53,6 +55,7 @@ public class ReviewCreateService {
         Driver driver = driverRepository.findByMemberIdAndDeletedFalse(ride.getDriverId())
                 .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
         driver.addRating(request.getRating());
+        carpoolMetrics.incrementReviewCreated();
 
         return ReviewResponse.from(review);
     }
