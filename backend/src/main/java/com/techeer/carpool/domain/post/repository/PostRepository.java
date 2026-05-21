@@ -18,8 +18,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT DISTINCT p FROM Post p LEFT JOIN FETCH p.tags WHERE p.deleted = false ORDER BY p.createdAt DESC")
     List<Post> findByDeletedFalseWithTagsOrderByCreatedAtDesc();
 
-    @EntityGraph(attributePaths = "tags")
-    Page<Post> findByDeletedFalse(Pageable pageable);
+    // 페이지네이션용: SQL LIMIT 적용 (tags 미포함 — 컬렉션 fetch와 Pageable 혼용 시 in-memory 페이징 발생)
+    @Query("SELECT p FROM Post p WHERE p.deleted = false ORDER BY p.createdAt DESC")
+    Page<Post> findPageByDeletedFalse(Pageable pageable);
+
+    // 특정 ID 목록의 tags 배치 로드
+    @Query("SELECT DISTINCT p FROM Post p LEFT JOIN FETCH p.tags WHERE p.id IN :ids")
+    List<Post> findByIdsWithTags(@Param("ids") List<Long> ids);
 
     Optional<Post> findByIdAndDeletedFalse(Long id);
 

@@ -90,11 +90,21 @@ public class PostService {
 
     @Transactional(readOnly = true)
     public Page<PostSummaryResponse> getPagedPosts(Pageable pageable) {
-        Page<Post> posts = postRepository.findByDeletedFalse(pageable);
-        Set<Long> memberIds = posts.stream().map(Post::getMemberId).collect(Collectors.toSet());
+        // 1단계: SQL LIMIT/OFFSET으로 페이지 ID 목록 조회
+        Page<Post> postPage = postRepository.findPageByDeletedFalse(pageable);
+        List<Long> ids = postPage.stream().map(Post::getId).collect(Collectors.toList());
+
+        // 2단계: 해당 ID들만 tags 배치 로드 (N+1 방지)
+        Map<Long, Post> postsWithTags = postRepository.findByIdsWithTags(ids).stream()
+                .collect(Collectors.toMap(Post::getId, p -> p));
+
+        Set<Long> memberIds = postPage.stream().map(Post::getMemberId).collect(Collectors.toSet());
         Map<Long, String> nicknameMap = memberRepository.findAllById(memberIds).stream()
                 .collect(Collectors.toMap(Member::getId, Member::getNickname));
-        return posts.map(p -> PostSummaryResponse.from(p, nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음")));
+
+        return postPage.map(p -> PostSummaryResponse.from(
+                postsWithTags.getOrDefault(p.getId(), p),
+                nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음")));
     }
 
     @Transactional(readOnly = true)

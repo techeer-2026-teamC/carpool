@@ -29,8 +29,9 @@ export const options = {
 export function setup() {
     const res = http.get(`${BASE_URL}/api/v1/posts`);
     if (res.status !== 200) return { postIds: [1, 2, 3, 4, 5] };
-    const posts = res.json('data');
-    return { postIds: (posts || []).slice(0, 20).map(p => p.id) };
+    const page = res.json('data');
+    const posts = (page && page.content) ? page.content : (Array.isArray(page) ? page : []);
+    return { postIds: posts.slice(0, 20).map(p => p.id) };
 }
 
 export default function (data) {
@@ -44,7 +45,8 @@ export default function (data) {
     // GET /posts — 전체 목록
     const listRes = http.get(`${BASE_URL}/api/v1/posts`, { tags: { endpoint: 'list_posts' } });
     if (checkStatus(listRes, 200, 'list_posts')) {
-        const posts = listRes.json('data');
+        const page = listRes.json('data');
+        const posts = (page && page.content) ? page.content : (Array.isArray(page) ? page : []);
         if (posts && posts.length > 0) {
             const post = posts[Math.floor(Math.random() * posts.length)];
             sleep(0.5);
