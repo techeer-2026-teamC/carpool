@@ -17,6 +17,8 @@ import com.techeer.carpool.domain.post.dto.PostCreateRequest;
 import com.techeer.carpool.domain.post.dto.PostDetailResponse;
 import com.techeer.carpool.domain.post.dto.PostSummaryResponse;
 import com.techeer.carpool.domain.post.dto.PostUpdateRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import com.techeer.carpool.domain.post.entity.Post;
 import com.techeer.carpool.domain.post.entity.PostUpdateCommand;
 import com.techeer.carpool.domain.post.entity.Tag;
@@ -84,6 +86,15 @@ public class PostService {
         return posts.stream()
                 .map(p -> PostSummaryResponse.from(p, nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음")))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PostSummaryResponse> getPagedPosts(Pageable pageable) {
+        Page<Post> posts = postRepository.findByDeletedFalse(pageable);
+        Set<Long> memberIds = posts.stream().map(Post::getMemberId).collect(Collectors.toSet());
+        Map<Long, String> nicknameMap = memberRepository.findAllById(memberIds).stream()
+                .collect(Collectors.toMap(Member::getId, Member::getNickname));
+        return posts.map(p -> PostSummaryResponse.from(p, nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음")));
     }
 
     @Transactional(readOnly = true)
