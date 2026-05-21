@@ -26,9 +26,8 @@ public enum ErrorCode {
 
 
     DRIVER_ALREADY_REGISTERED("DRIVER_001", "이미 운전자로 등록되어 있습니다.", HttpStatus.CONFLICT),
-    VEHICLE_OPTION_NOT_FOUND("DRIVER_002", "차량 옵션을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    CAR_NUMBER_DUPLICATE("DRIVER_004", "이미 등록된 차량 번호입니다.", HttpStatus.CONFLICT),
-    DRIVER_NOT_FOUND("DRIVER_005", "운전자 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CAR_NUMBER_DUPLICATE("DRIVER_002", "이미 등록된 차량 번호입니다.", HttpStatus.CONFLICT),
+    DRIVER_NOT_FOUND("DRIVER_003", "운전자 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     RIDE_NOT_FOUND("RIDE_001", "운행을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     RIDE_FORBIDDEN("RIDE_002", "운행 제어 권한이 없습니다.", HttpStatus.FORBIDDEN),
     RIDE_INVALID_STATUS("RIDE_003", "현재 상태에서 허용되지 않는 작업입니다.", HttpStatus.CONFLICT),

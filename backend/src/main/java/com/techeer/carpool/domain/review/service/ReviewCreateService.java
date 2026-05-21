@@ -1,7 +1,7 @@
 package com.techeer.carpool.domain.review.service;
 
-import com.techeer.carpool.domain.member.entity.Member;
-import com.techeer.carpool.domain.member.repository.MemberRepository;
+import com.techeer.carpool.domain.driver.entity.Driver;
+import com.techeer.carpool.domain.driver.repository.DriverRepository;
 import com.techeer.carpool.domain.ride.entity.Ride;
 import com.techeer.carpool.domain.ride.entity.RideStatus;
 import com.techeer.carpool.domain.ride.repository.RideRepository;
@@ -21,7 +21,7 @@ public class ReviewCreateService {
 
     private final ReviewRepository reviewRepository;
     private final RideRepository rideRepository;
-    private final MemberRepository memberRepository;
+    private final DriverRepository driverRepository;
 
     @Transactional
     public ReviewResponse createReview(Long rideId, ReviewCreateRequest request, Long reviewerId) {
@@ -50,8 +50,8 @@ public class ReviewCreateService {
                 .comment(request.getComment())
                 .build());
 
-        Member driver = memberRepository.findById(ride.getDriverId())
-                .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
+        Driver driver = driverRepository.findByMemberIdAndDeletedFalse(ride.getDriverId())
+                .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
         driver.addRating(request.getRating());
 
         return ReviewResponse.from(review);

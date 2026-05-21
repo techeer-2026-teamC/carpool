@@ -29,29 +29,11 @@ public class Member extends SoftDeletableEntity {
     @Column(nullable = false, length = 50)
     private String nickname;
 
-    @Column(nullable = false)
-    private int totalRatingSum = 0;
-
-    @Column(nullable = false)
-    private int reviewCount = 0;
-
     @Builder
     public Member(String email, String password, String nickname) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
-    }
-
-    public void addRating(int rating) {
-        if (rating < 1 || rating > 5) {
-            throw new CarpoolException(ErrorCode.INVALID_INPUT);
-        }
-        this.totalRatingSum += rating;
-        this.reviewCount++;
-    }
-
-    public double getAverageRating() {
-        return reviewCount == 0 ? 0.0 : (double) totalRatingSum / reviewCount;
     }
 
     public void updateNickname(String nickname) {

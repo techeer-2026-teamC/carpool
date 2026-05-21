@@ -1,11 +1,12 @@
 package com.techeer.carpool.domain.driver.entity;
 
+import com.techeer.carpool.global.common.entity.SoftDeletableEntity;
+import com.techeer.carpool.global.exception.CarpoolException;
+import com.techeer.carpool.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -13,7 +14,7 @@ import static lombok.AccessLevel.PROTECTED;
 @Table(name = "drivers")
 @Getter
 @NoArgsConstructor(access = PROTECTED)
-public class Driver {
+public class Driver extends SoftDeletableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,46 +23,45 @@ public class Driver {
     @Column(nullable = false)
     private Long memberId;
 
-    @Column(nullable = false)
-    private Long vehicleOptionId;
+    @Column(nullable = false, length = 50)
+    private String carModel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private CarColor carColor;
 
     @Column(nullable = false, unique = true, length = 20)
     private String carNumber;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(nullable = false)
+    private int totalRatingSum = 0;
 
     @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @Column(nullable = false)
-    private boolean deleted;
-
-    @PrePersist
-    private void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.deleted = false;
-    }
-
-    @PreUpdate
-    private void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+    private int reviewCount = 0;
 
     @Builder
-    public Driver(Long memberId, Long vehicleOptionId, String carNumber) {
+    public Driver(Long memberId, String carModel, CarColor carColor, String carNumber) {
         this.memberId = memberId;
-        this.vehicleOptionId = vehicleOptionId;
+        this.carModel = carModel;
+        this.carColor = carColor;
         this.carNumber = carNumber;
     }
 
-    public void update(Long vehicleOptionId, String carNumber) {
-        this.vehicleOptionId = vehicleOptionId;
+    public void update(String carModel, CarColor carColor, String carNumber) {
+        this.carModel = carModel;
+        this.carColor = carColor;
         this.carNumber = carNumber;
     }
 
-    public void softDelete() {
-        this.deleted = true;
+    public void addRating(int rating) {
+        if (rating < 1 || rating > 5) {
+            throw new CarpoolException(ErrorCode.INVALID_INPUT);
+        }
+        this.totalRatingSum += rating;
+        this.reviewCount++;
+    }
+
+    public double getAverageRating() {
+        return reviewCount == 0 ? 0.0 : (double) totalRatingSum / reviewCount;
     }
 }
