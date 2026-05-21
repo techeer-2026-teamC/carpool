@@ -5,6 +5,7 @@ import com.techeer.carpool.domain.application.entity.ApplicationStatus;
 import com.techeer.carpool.domain.application.repository.ApplicationRepository;
 import com.techeer.carpool.domain.comment.dto.CommentResponse;
 import com.techeer.carpool.domain.comment.service.CommentService;
+import com.techeer.carpool.domain.driver.entity.Driver;
 import com.techeer.carpool.domain.driver.repository.DriverRepository;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
@@ -52,7 +53,7 @@ public class PostService {
 
     @Transactional
     public PostDetailResponse createPost(PostCreateRequest request, Long memberId) {
-        driverRepository.findByMemberIdAndDeletedFalse(memberId)
+        Driver driver = driverRepository.findByMemberIdAndDeletedFalse(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
 
         List<Tag> tags = resolveTags(request.getTagIds());
@@ -74,7 +75,7 @@ public class PostService {
                 .build();
         Post saved = postRepository.save(post);
         carpoolMetrics.incrementPostCreated();
-        return PostDetailResponse.from(saved, fetchNickname(saved.getMemberId()), List.of());
+        return PostDetailResponse.from(saved, fetchNickname(saved.getMemberId()), driver.getAverageRating(), List.of());
     }
 
     @Transactional(readOnly = true)
@@ -83,8 +84,12 @@ public class PostService {
         Set<Long> memberIds = posts.stream().map(Post::getMemberId).collect(Collectors.toSet());
         Map<Long, String> nicknameMap = memberRepository.findAllById(memberIds).stream()
                 .collect(Collectors.toMap(Member::getId, Member::getNickname));
+        Map<Long, Double> ratingMap = driverRepository.findByMemberIdInAndDeletedFalse(memberIds).stream()
+                .collect(Collectors.toMap(Driver::getMemberId, Driver::getAverageRating));
         return posts.stream()
-                .map(p -> PostSummaryResponse.from(p, nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음")))
+                .map(p -> PostSummaryResponse.from(p,
+                        nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음"),
+                        ratingMap.getOrDefault(p.getMemberId(), 0.0)))
                 .collect(Collectors.toList());
     }
 
@@ -101,10 +106,13 @@ public class PostService {
         Set<Long> memberIds = postPage.stream().map(Post::getMemberId).collect(Collectors.toSet());
         Map<Long, String> nicknameMap = memberRepository.findAllById(memberIds).stream()
                 .collect(Collectors.toMap(Member::getId, Member::getNickname));
+        Map<Long, Double> ratingMap = driverRepository.findByMemberIdInAndDeletedFalse(memberIds).stream()
+                .collect(Collectors.toMap(Driver::getMemberId, Driver::getAverageRating));
 
         return postPage.map(p -> PostSummaryResponse.from(
                 postsWithTags.getOrDefault(p.getId(), p),
-                nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음")));
+                nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음"),
+                ratingMap.getOrDefault(p.getMemberId(), 0.0)));
     }
 
     @Transactional(readOnly = true)
@@ -113,8 +121,11 @@ public class PostService {
                 .orElseThrow(() -> new CarpoolException(ErrorCode.POST_NOT_FOUND));
 
         List<CommentResponse> commentResponses = commentService.getCommentsByPostId(id);
+        double rating = driverRepository.findByMemberIdAndDeletedFalse(post.getMemberId())
+                .map(Driver::getAverageRating)
+                .orElse(0.0);
 
-        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), commentResponses);
+        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), rating, commentResponses);
     }
 
     @Transactional
@@ -139,7 +150,10 @@ public class PostService {
                 request.getPrice(),
                 tags
         ));
-        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), List.of());
+        double rating = driverRepository.findByMemberIdAndDeletedFalse(post.getMemberId())
+                .map(Driver::getAverageRating)
+                .orElse(0.0);
+        return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), rating, List.of());
     }
 
     @Transactional
