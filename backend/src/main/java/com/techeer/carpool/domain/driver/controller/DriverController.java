@@ -1,7 +1,9 @@
 package com.techeer.carpool.domain.driver.controller;
 
+import com.techeer.carpool.domain.driver.dto.CarColorResponse;
 import com.techeer.carpool.domain.driver.dto.DriverRequest;
 import com.techeer.carpool.domain.driver.dto.DriverResponse;
+import com.techeer.carpool.domain.driver.entity.CarColor;
 import com.techeer.carpool.domain.driver.service.DriverService;
 import com.techeer.carpool.global.common.ApiResponse;
 import jakarta.validation.Valid;
@@ -10,6 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/drivers")
@@ -39,5 +44,13 @@ public class DriverController {
             Authentication authentication) {
         Long memberId = (Long) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.of("운전자 정보가 수정되었습니다.", driverService.update(memberId, request)));
+    }
+
+    @GetMapping("/colors")
+    public ResponseEntity<ApiResponse<List<CarColorResponse>>> getCarColors() {
+        List<CarColorResponse> colors = Arrays.stream(CarColor.values())
+                .map(CarColorResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.of("차량 색상 목록 조회 성공", colors));
     }
 }
