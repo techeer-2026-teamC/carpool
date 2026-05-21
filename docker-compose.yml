@@ -22,35 +22,6 @@ services:
     ports:
       - "6379:6379"
 
-  app:
-    image: ${DOCKER_USERNAME}/carpool:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: carpool-app
-    ports:
-      - "8080:8080"
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
-      DB_URL: jdbc:postgresql://carpool-db:5432/carpool
-      DB_USERNAME: user
-      DB_PASSWORD: password
-      JWT_SECRET: ${JWT_SECRET}
-      REDIS_HOST: carpool-redis
-      SPRING_REDIS_PORT: 6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          memory: 256M
-
   prometheus:
     image: prom/prometheus:v2.51.0
     container_name: carpool-prometheus
