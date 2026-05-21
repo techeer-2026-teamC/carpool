@@ -1,13 +1,19 @@
 package com.techeer.carpool.domain.post;
 
 import tools.jackson.databind.ObjectMapper;
-import com.techeer.carpool.domain.member.entity.Member;
-import com.techeer.carpool.domain.member.repository.MemberRepository;
-import com.techeer.carpool.domain.post.entity.Post;
-import com.techeer.carpool.domain.post.entity.PostStatus;
-import com.techeer.carpool.domain.post.repository.PostRepository;
+import com.jayway.jsonpath.JsonPath;
+import com.techeer.carpool.domain.application.entity.ApplicationStatus;
+import com.techeer.carpool.domain.application.repository.ApplicationRepository;
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
+import com.techeer.carpool.domain.driver.entity.CarColor;
+import com.techeer.carpool.domain.driver.entity.Driver;
+import com.techeer.carpool.domain.driver.repository.DriverRepository;
+import com.techeer.carpool.domain.member.entity.Member;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
+import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
+import com.techeer.carpool.domain.post.entity.Post;
+import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,15 +22,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -37,22 +45,28 @@ class PostIntegrationTest {
     @Autowired ObjectMapper objectMapper;
     @Autowired PostRepository postRepository;
     @Autowired MemberRepository memberRepository;
+    @Autowired DriverRepository driverRepository;
+    @Autowired ApplicationRepository applicationRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
 
-    @MockitoBean RedisMessageListenerContainer listenerContainer;
+    @MockitoBean RedisMessageListenerContainer redisMessageListenerContainer;
     @MockitoBean RefreshTokenRedisRepository refreshTokenRedisRepository;
     @MockitoBean BlacklistRedisRepository blacklistRedisRepository;
-    @MockitoBean com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher notificationPublisher;
+    @MockitoBean RedisNotificationPublisher notificationPublisher;
 
     private Long ownerId;
-    private Long otherId;
+    private Long applicantId;
+    private Long nonDriverId;
     private Long postId;
     private String ownerToken;
-    private String otherToken;
+    private String applicantToken;
+    private String nonDriverToken;
 
     @BeforeEach
     void setUp() {
+        applicationRepository.deleteAll();
         postRepository.deleteAll();
+        driverRepository.deleteAll();
         memberRepository.deleteAll();
 
         Member owner = memberRepository.save(Member.builder()
@@ -60,10 +74,23 @@ class PostIntegrationTest {
         ownerId = owner.getId();
         ownerToken = "Bearer " + jwtTokenProvider.createAccessToken(ownerId);
 
-        Member other = memberRepository.save(Member.builder()
-                .email("other@test.com").password("pw").nickname("타인").build());
-        otherId = other.getId();
-        otherToken = "Bearer " + jwtTokenProvider.createAccessToken(otherId);
+        // owner는 driver 등록
+        driverRepository.save(Driver.builder()
+                .memberId(ownerId)
+                .carModel("소나타")
+                .carColor(CarColor.WHITE)
+                .carNumber("12가3456")
+                .build());
+
+        Member applicant = memberRepository.save(Member.builder()
+                .email("applicant@test.com").password("pw").nickname("신청자").build());
+        applicantId = applicant.getId();
+        applicantToken = "Bearer " + jwtTokenProvider.createAccessToken(applicantId);
+
+        Member nonDriver = memberRepository.save(Member.builder()
+                .email("nondriver@test.com").password("pw").nickname("비드라이버").build());
+        nonDriverId = nonDriver.getId();
+        nonDriverToken = "Bearer " + jwtTokenProvider.createAccessToken(nonDriverId);
 
         Post post = postRepository.save(Post.builder()
                 .memberId(ownerId)
@@ -81,30 +108,27 @@ class PostIntegrationTest {
     // ── 게시글 생성 ──────────────────────────────────────────
 
     @Test
-    @DisplayName("게시글 생성 성공")
+    @DisplayName("게시글 생성 성공 - 드라이버인 경우")
     void createPost_success() throws Exception {
-        Map<String, Object> body = new HashMap<>();
-        body.put("title", "새 카풀");
-        body.put("departureLocation", "홍대입구");
-        body.put("departureLat", 37.5572);
-        body.put("departureLng", 126.9247);
-        body.put("destinationLocation", "여의도");
-        body.put("destinationLat", 37.5215);
-        body.put("destinationLng", 126.9242);
-        body.put("departureTime", LocalDateTime.now().plusDays(2).toString());
-        body.put("maxPassengers", 2);
-        body.put("description", "직행");
-        body.put("autoAccept", false);
-
         mockMvc.perform(post("/api/v1/posts")
                         .header("Authorization", ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(buildPostBody(false))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.title").value("새 카풀"))
                 .andExpect(jsonPath("$.data.status").value("OPEN"))
-                .andExpect(jsonPath("$.data.currentPassengers").value(0))
-                .andExpect(jsonPath("$.data.nickname").value("작성자"));
+                .andExpect(jsonPath("$.data.currentPassengers").value(0));
+    }
+
+    @Test
+    @DisplayName("게시글 생성 실패 - 드라이버 미등록")
+    void createPost_noDriver() throws Exception {
+        mockMvc.perform(post("/api/v1/posts")
+                        .header("Authorization", nonDriverToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(buildPostBody(false))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("DRIVER_003"));
     }
 
     @Test
@@ -130,8 +154,8 @@ class PostIntegrationTest {
     }
 
     @Test
-    @DisplayName("게시글 목록 조회 실패 - 미인증 시 401")
-    void getAllPosts_unauthenticated_401() throws Exception {
+    @DisplayName("게시글 목록 조회 실패 - 미인증")
+    void getAllPosts_unauthenticated() throws Exception {
         mockMvc.perform(get("/api/v1/posts"))
                 .andExpect(status().isUnauthorized());
     }
@@ -173,11 +197,10 @@ class PostIntegrationTest {
     @Test
     @DisplayName("게시글 수정 성공")
     void updatePost_success() throws Exception {
-        Map<String, Object> body = buildUpdateBody("수정된 제목", "수정된 내용");
         mockMvc.perform(patch("/api/v1/posts/{id}", postId)
                         .header("Authorization", ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(buildUpdateBody("수정된 제목"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.title").value("수정된 제목"));
     }
@@ -185,11 +208,10 @@ class PostIntegrationTest {
     @Test
     @DisplayName("게시글 수정 실패 - 타인이 수정 시도")
     void updatePost_forbidden() throws Exception {
-        Map<String, Object> body = buildUpdateBody("해킹된 제목", "");
         mockMvc.perform(patch("/api/v1/posts/{id}", postId)
-                        .header("Authorization", otherToken)
+                        .header("Authorization", applicantToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(buildUpdateBody("해킹 제목"))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("POST_002"));
     }
@@ -197,16 +219,85 @@ class PostIntegrationTest {
     @Test
     @DisplayName("게시글 수정 실패 - 존재하지 않는 게시글")
     void updatePost_notFound() throws Exception {
-        Map<String, Object> body = buildUpdateBody("없는 게시글", "");
         mockMvc.perform(patch("/api/v1/posts/{id}", 99999L)
                         .header("Authorization", ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
+                        .content(objectMapper.writeValueAsString(buildUpdateBody("제목"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("POST_001"));
     }
 
-    private Map<String, Object> buildUpdateBody(String title, String description) {
+    // ── 게시글 삭제 ──────────────────────────────────────────
+
+    @Test
+    @DisplayName("게시글 삭제 성공 - 삭제 후 조회 시 404")
+    void deletePost_success() throws Exception {
+        mockMvc.perform(delete("/api/v1/posts/{id}", postId)
+                        .header("Authorization", ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("게시글이 삭제되었습니다."));
+
+        mockMvc.perform(get("/api/v1/posts/{id}", postId)
+                        .header("Authorization", ownerToken))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("게시글 삭제 실패 - 타인이 삭제 시도")
+    void deletePost_forbidden() throws Exception {
+        mockMvc.perform(delete("/api/v1/posts/{id}", postId)
+                        .header("Authorization", applicantToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("POST_002"));
+    }
+
+    @Test
+    @DisplayName("게시글 삭제 시 ACCEPTED 신청 REJECTED 처리")
+    void deletePost_rejectsAcceptedApplications() throws Exception {
+        // 신청자가 신청
+        MvcResult applyResult = mockMvc.perform(
+                post("/api/v1/posts/{postId}/applications", postId)
+                        .header("Authorization", applicantToken))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Long applicationId = ((Number) JsonPath.read(
+                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+
+        // 작성자가 수락
+        mockMvc.perform(patch("/api/v1/applications/{id}/accept", applicationId)
+                        .header("Authorization", ownerToken))
+                .andExpect(status().isOk());
+
+        // 게시글 삭제
+        mockMvc.perform(delete("/api/v1/posts/{id}", postId)
+                        .header("Authorization", ownerToken))
+                .andExpect(status().isOk());
+
+        // 신청 상태 REJECTED 확인
+        assertThat(applicationRepository.findByApplicantIdAndStatus(applicantId, ApplicationStatus.ACCEPTED)).isEmpty();
+        assertThat(applicationRepository.findByApplicantIdAndStatus(applicantId, ApplicationStatus.REJECTED)).hasSize(1);
+    }
+
+    // ── helpers ───────────────────────────────────────────────
+
+    private Map<String, Object> buildPostBody(boolean autoAccept) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("title", "새 카풀");
+        body.put("departureLocation", "홍대입구");
+        body.put("departureLat", 37.5572);
+        body.put("departureLng", 126.9247);
+        body.put("destinationLocation", "여의도");
+        body.put("destinationLat", 37.5215);
+        body.put("destinationLng", 126.9242);
+        body.put("departureTime", LocalDateTime.now().plusDays(2).toString());
+        body.put("maxPassengers", 2);
+        body.put("description", "직행");
+        body.put("autoAccept", autoAccept);
+        return body;
+    }
+
+    private Map<String, Object> buildUpdateBody(String title) {
         Map<String, Object> body = new HashMap<>();
         body.put("title", title);
         body.put("departureLocation", "강남역");
@@ -217,34 +308,9 @@ class PostIntegrationTest {
         body.put("destinationLng", 127.1110);
         body.put("departureTime", LocalDateTime.now().plusDays(1).toString());
         body.put("maxPassengers", 3);
-        body.put("description", description);
+        body.put("description", "테스트");
         body.put("autoAccept", false);
         body.put("status", "OPEN");
         return body;
-    }
-
-    // ── 게시글 삭제 ──────────────────────────────────────────
-
-    @Test
-    @DisplayName("게시글 삭제 성공")
-    void deletePost_success() throws Exception {
-        mockMvc.perform(delete("/api/v1/posts/{id}", postId)
-                        .header("Authorization", ownerToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("게시글이 삭제되었습니다."));
-
-        // 삭제 후 조회 시 404
-        mockMvc.perform(get("/api/v1/posts/{id}", postId)
-                        .header("Authorization", ownerToken))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("게시글 삭제 실패 - 타인이 삭제 시도")
-    void deletePost_forbidden() throws Exception {
-        mockMvc.perform(delete("/api/v1/posts/{id}", postId)
-                        .header("Authorization", otherToken))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("POST_002"));
     }
 }

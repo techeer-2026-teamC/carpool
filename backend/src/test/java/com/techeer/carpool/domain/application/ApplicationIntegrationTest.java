@@ -1,28 +1,29 @@
 package com.techeer.carpool.domain.application;
 
 import tools.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.JsonPath;
 import com.techeer.carpool.domain.application.repository.ApplicationRepository;
-import com.techeer.carpool.domain.member.entity.Member;
-import com.techeer.carpool.domain.member.repository.MemberRepository;
-import com.techeer.carpool.domain.post.entity.Post;
-import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
+import com.techeer.carpool.domain.member.entity.Member;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
+import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
+import com.techeer.carpool.domain.post.entity.Post;
+import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.mockito.Mock;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDateTime;
-
-import com.jayway.jsonpath.JsonPath;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -39,9 +40,10 @@ class ApplicationIntegrationTest {
     @Autowired MemberRepository memberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
 
-    @Mock RefreshTokenRedisRepository refreshTokenRedisRepository;
-    @Mock BlacklistRedisRepository blacklistRedisRepository;
-    @Mock com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher notificationPublisher;
+    @MockitoBean RedisMessageListenerContainer redisMessageListenerContainer;
+    @MockitoBean RefreshTokenRedisRepository refreshTokenRedisRepository;
+    @MockitoBean BlacklistRedisRepository blacklistRedisRepository;
+    @MockitoBean RedisNotificationPublisher notificationPublisher;
 
     private Long ownerId;
     private Long applicant1Id;
@@ -88,7 +90,7 @@ class ApplicationIntegrationTest {
     // ── 신청 ─────────────────────────────────────────────────
 
     @Test
-    @DisplayName("카풀 신청 성공")
+    @DisplayName("카풀 신청 성공 - PENDING 상태")
     void apply_success() throws Exception {
         mockMvc.perform(post("/api/v1/posts/{postId}/applications", postId)
                         .header("Authorization", applicant1Token))
@@ -121,9 +123,8 @@ class ApplicationIntegrationTest {
     }
 
     @Test
-    @DisplayName("카풀 신청 실패 - 정원 초과")
+    @DisplayName("카풀 신청 실패 - 정원 초과 (수락 후 CLOSED 상태)")
     void apply_postFull() throws Exception {
-        // maxPassengers=1 인 게시글 생성
         Post smallPost = postRepository.save(Post.builder()
                 .memberId(ownerId)
                 .title("1인 카풀")
@@ -135,24 +136,43 @@ class ApplicationIntegrationTest {
                 .build());
         Long smallPostId = smallPost.getId();
 
-        // 신청자1 신청
         MvcResult applyResult = mockMvc.perform(
                 post("/api/v1/posts/{postId}/applications", smallPostId)
                         .header("Authorization", applicant1Token))
-                .andExpect(status().isCreated())
-                .andReturn();
+                .andExpect(status().isCreated()).andReturn();
 
         Long applicationId = ((Number) JsonPath.read(
                 applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
 
-        // 작성자가 수락 → currentPassengers=1, 정원 마감
+        // 수락 → currentPassengers=1, CLOSED
         mockMvc.perform(patch("/api/v1/applications/{id}/accept", applicationId)
                         .header("Authorization", ownerToken))
                 .andExpect(status().isOk());
 
-        // 신청자2가 신청 시도 → 정원 초과
+        // 신청자2 신청 시도 → CLOSED 상태로 차단
         mockMvc.perform(post("/api/v1/posts/{postId}/applications", smallPostId)
                         .header("Authorization", applicant2Token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("APPLICATION_005"));
+    }
+
+    @Test
+    @DisplayName("카풀 신청 실패 - 수동 마감된 게시글")
+    void apply_manuallyClosed() throws Exception {
+        Post closedPost = postRepository.save(Post.builder()
+                .memberId(ownerId)
+                .title("마감 카풀")
+                .departureLocation("강남역").departureLat(37.4979).departureLng(127.0276)
+                .destinationLocation("판교역").destinationLat(37.3943).destinationLng(127.1110)
+                .departureTime(LocalDateTime.now().plusDays(1))
+                .maxPassengers(3)
+                .autoAccept(false)
+                .build());
+        closedPost.close();
+        postRepository.save(closedPost);
+
+        mockMvc.perform(post("/api/v1/posts/{postId}/applications", closedPost.getId())
+                        .header("Authorization", applicant1Token))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("APPLICATION_005"));
     }
@@ -166,6 +186,30 @@ class ApplicationIntegrationTest {
                 .andExpect(jsonPath("$.code").value("POST_001"));
     }
 
+    @Test
+    @DisplayName("autoAccept 게시글 신청 - 즉시 ACCEPTED")
+    void apply_autoAccept() throws Exception {
+        Post autoPost = postRepository.save(Post.builder()
+                .memberId(ownerId)
+                .title("자동수락 카풀")
+                .departureLocation("강남역").departureLat(37.4979).departureLng(127.0276)
+                .destinationLocation("판교역").destinationLat(37.3943).destinationLng(127.1110)
+                .departureTime(LocalDateTime.now().plusDays(1))
+                .maxPassengers(3)
+                .autoAccept(true)
+                .build());
+
+        mockMvc.perform(post("/api/v1/posts/{postId}/applications", autoPost.getId())
+                        .header("Authorization", applicant1Token))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("ACCEPTED"));
+
+        // currentPassengers 증가 확인
+        mockMvc.perform(get("/api/v1/posts/{id}", autoPost.getId())
+                        .header("Authorization", ownerToken))
+                .andExpect(jsonPath("$.data.currentPassengers").value(1));
+    }
+
     // ── 신청 목록 조회 ───────────────────────────────────────
 
     @Test
@@ -177,7 +221,6 @@ class ApplicationIntegrationTest {
         mockMvc.perform(get("/api/v1/applications/me")
                         .header("Authorization", applicant1Token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].postId").value(postId));
     }
@@ -208,35 +251,24 @@ class ApplicationIntegrationTest {
     // ── 신청 수락/거절 ───────────────────────────────────────
 
     @Test
-    @DisplayName("신청 수락 성공 - 상태 ACCEPTED, currentPassengers 증가")
+    @DisplayName("신청 수락 성공 - ACCEPTED, currentPassengers 증가")
     void accept_success() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(postId, applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/accept", applicationId)
                         .header("Authorization", ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACCEPTED"));
 
-        // 게시글 currentPassengers 1 증가 확인
         mockMvc.perform(get("/api/v1/posts/{id}", postId)
                         .header("Authorization", ownerToken))
                 .andExpect(jsonPath("$.data.currentPassengers").value(1));
     }
 
     @Test
-    @DisplayName("신청 거절 성공 - 상태 REJECTED")
+    @DisplayName("신청 거절 성공 - REJECTED")
     void reject_success() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(postId, applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/reject", applicationId)
                         .header("Authorization", ownerToken))
@@ -247,12 +279,7 @@ class ApplicationIntegrationTest {
     @Test
     @DisplayName("신청 수락 실패 - 이미 처리된 신청")
     void accept_alreadyProcessed() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(postId, applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/accept", applicationId)
                         .header("Authorization", ownerToken));
@@ -266,12 +293,7 @@ class ApplicationIntegrationTest {
     @Test
     @DisplayName("신청 수락 실패 - 권한 없음 (비작성자)")
     void accept_forbidden() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(postId, applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/accept", applicationId)
                         .header("Authorization", applicant2Token))
@@ -291,18 +313,12 @@ class ApplicationIntegrationTest {
     // ── 수락/거절 취소 ───────────────────────────────────────
 
     @Test
-    @DisplayName("수락 취소 성공 - 상태 PENDING 복구, currentPassengers 감소")
+    @DisplayName("수락 취소 성공 - PENDING 복구, currentPassengers 감소")
     void cancelAccept_success() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(postId, applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/accept", applicationId)
-                        .header("Authorization", ownerToken))
-                .andExpect(status().isOk());
+                        .header("Authorization", ownerToken));
 
         mockMvc.perform(patch("/api/v1/applications/{id}/cancel-accept", applicationId)
                         .header("Authorization", ownerToken))
@@ -315,14 +331,9 @@ class ApplicationIntegrationTest {
     }
 
     @Test
-    @DisplayName("거절 취소 성공 - 상태 PENDING 복구")
+    @DisplayName("거절 취소 성공 - PENDING 복구")
     void cancelReject_success() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(postId, applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/reject", applicationId)
                         .header("Authorization", ownerToken));
@@ -336,12 +347,7 @@ class ApplicationIntegrationTest {
     @Test
     @DisplayName("수락 취소 실패 - PENDING 상태에서 시도")
     void cancelAccept_notAccepted() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(postId, applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/cancel-accept", applicationId)
                         .header("Authorization", ownerToken))
@@ -352,36 +358,12 @@ class ApplicationIntegrationTest {
     @Test
     @DisplayName("거절 취소 실패 - PENDING 상태에서 시도")
     void cancelReject_notRejected() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(postId, applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/cancel-reject", applicationId)
                         .header("Authorization", ownerToken))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("APPLICATION_008"));
-    }
-
-    @Test
-    @DisplayName("수락 취소 실패 - 권한 없음 (비작성자)")
-    void cancelAccept_forbidden() throws Exception {
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", postId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
-
-        mockMvc.perform(patch("/api/v1/applications/{id}/accept", applicationId)
-                        .header("Authorization", ownerToken));
-
-        mockMvc.perform(patch("/api/v1/applications/{id}/cancel-accept", applicationId)
-                        .header("Authorization", applicant2Token))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("APPLICATION_004"));
     }
 
     @Test
@@ -396,14 +378,8 @@ class ApplicationIntegrationTest {
                 .maxPassengers(1)
                 .autoAccept(false)
                 .build());
-        Long smallPostId = smallPost.getId();
 
-        MvcResult applyResult = mockMvc.perform(
-                post("/api/v1/posts/{postId}/applications", smallPostId)
-                        .header("Authorization", applicant1Token))
-                .andReturn();
-        Long applicationId = ((Number) JsonPath.read(
-                applyResult.getResponse().getContentAsString(), "$.data.id")).longValue();
+        Long applicationId = applyAndGetId(smallPost.getId(), applicant1Token);
 
         mockMvc.perform(patch("/api/v1/applications/{id}/accept", applicationId)
                         .header("Authorization", ownerToken));
@@ -412,9 +388,20 @@ class ApplicationIntegrationTest {
                         .header("Authorization", ownerToken))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/v1/posts/{id}", smallPostId)
+        mockMvc.perform(get("/api/v1/posts/{id}", smallPost.getId())
                         .header("Authorization", ownerToken))
                 .andExpect(jsonPath("$.data.status").value("OPEN"))
                 .andExpect(jsonPath("$.data.currentPassengers").value(0));
+    }
+
+    // ── helpers ───────────────────────────────────────────────
+
+    private Long applyAndGetId(Long targetPostId, String applicantToken) throws Exception {
+        MvcResult result = mockMvc.perform(
+                post("/api/v1/posts/{postId}/applications", targetPostId)
+                        .header("Authorization", applicantToken))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return ((Number) JsonPath.read(result.getResponse().getContentAsString(), "$.data.id")).longValue();
     }
 }

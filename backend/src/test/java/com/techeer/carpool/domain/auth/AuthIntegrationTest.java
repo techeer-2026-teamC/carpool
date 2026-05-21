@@ -5,6 +5,7 @@ import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
+import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,13 +13,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Map;
 import java.util.Optional;
@@ -39,9 +40,10 @@ class AuthIntegrationTest {
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired PasswordEncoder passwordEncoder;
 
-    // Redis는 테스트 환경에 없으므로 MockBean으로 격리
+    @MockitoBean RedisMessageListenerContainer redisMessageListenerContainer;
     @MockitoBean RefreshTokenRedisRepository refreshTokenRedisRepository;
     @MockitoBean BlacklistRedisRepository blacklistRedisRepository;
+    @MockitoBean RedisNotificationPublisher notificationPublisher;
 
     @BeforeEach
     void setUp() {
@@ -191,8 +193,6 @@ class AuthIntegrationTest {
                 .nickname("유저").build());
 
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
-
-        // Redis에 토큰이 저장된 상태를 Mock으로 재현
         when(refreshTokenRedisRepository.findByMemberId(member.getId()))
                 .thenReturn(Optional.of(refreshToken));
 
@@ -229,8 +229,6 @@ class AuthIntegrationTest {
                 .nickname("유저").build());
 
         String orphanToken = jwtTokenProvider.createRefreshToken(member.getId());
-
-        // Redis에 토큰 없음 → Optional.empty() 반환 (기본 MockBean 동작)
         when(refreshTokenRedisRepository.findByMemberId(any()))
                 .thenReturn(Optional.empty());
 
