@@ -66,11 +66,15 @@ public class LocalDataInitializer implements CommandLineRunner {
             allPosts = seedPosts(test, admin, tagMap);
         }
 
+        boolean ridesJustSeeded = false;
         if (rideRepository.count() == 0) {
             seedRides(test, admin, allPosts);
+            ridesJustSeeded = true;
         }
 
-        refreshTimeSensitiveData(allPosts);
+        if (!ridesJustSeeded) {
+            refreshTimeSensitiveData(allPosts);
+        }
 
         log.info("[LocalDataInitializer] 초기 데이터 생성 완료");
     }
@@ -281,9 +285,7 @@ public class LocalDataInitializer implements CommandLineRunner {
                 });
 
         // IN_PROGRESS 운행: startedAt·boardedAt을 지금 기준으로 갱신
-        rideRepository.findAll().stream()
-                .filter(r -> r.getStatus() == RideStatus.IN_PROGRESS)
-                .findFirst()
+        rideRepository.findFirstByStatus(RideStatus.IN_PROGRESS)
                 .ifPresent(r -> {
                     r.refreshStartedAt(LocalDateTime.now().minusMinutes(20));
                     rideRepository.save(r);
