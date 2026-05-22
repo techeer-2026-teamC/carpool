@@ -148,16 +148,16 @@ class PostIntegrationTest {
         mockMvc.perform(get("/api/v1/posts")
                         .header("Authorization", ownerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(1))
-                .andExpect(jsonPath("$.data[0].title").value("강남 → 판교"));
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].title").value("강남 → 판교"));
     }
 
     @Test
-    @DisplayName("게시글 목록 조회 실패 - 미인증")
-    void getAllPosts_unauthenticated() throws Exception {
+    @DisplayName("게시글 목록 조회 성공 - 미인증 허용 (permitAll)")
+    void getAllPosts_unauthenticated_allowed() throws Exception {
         mockMvc.perform(get("/api/v1/posts"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
     }
 
     @Test
