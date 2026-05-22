@@ -97,7 +97,7 @@ class PostIntegrationTest {
                 .title("강남 → 판교")
                 .departureLocation("강남역").departureLat(37.4979).departureLng(127.0276)
                 .destinationLocation("판교역").destinationLat(37.3943).destinationLng(127.1110)
-                .departureTime(LocalDateTime.now().plusDays(1))
+                .departureTime(LocalDateTime.now().plusDays(7))
                 .maxPassengers(3)
                 .description("테스트")
                 .autoAccept(false)
@@ -290,7 +290,7 @@ class PostIntegrationTest {
         body.put("destinationLocation", "여의도");
         body.put("destinationLat", 37.5215);
         body.put("destinationLng", 126.9242);
-        body.put("departureTime", LocalDateTime.now().plusDays(2).toString());
+        body.put("departureTime", LocalDateTime.now().plusDays(7).toString());
         body.put("maxPassengers", 2);
         body.put("description", "직행");
         body.put("autoAccept", autoAccept);

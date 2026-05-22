@@ -17,6 +17,9 @@ import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +36,11 @@ public class ApplicationCreateService {
     private final NotificationService notificationService;
     private final CarpoolMetrics carpoolMetrics;
 
+    @Retryable(
+            retryFor = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 5,
+            backoff = @Backoff(delay = 50, multiplier = 1.5, random = true)
+    )
     @Transactional
     public ApplicationResponse apply(Long postId, Long applicantId) {
         Post post = postRepository.findByIdAndDeletedFalseWithLock(postId)

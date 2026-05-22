@@ -3,11 +3,13 @@
  * 목적: 아침/저녁 출퇴근 트래픽 패턴 재현 → Redis JWT 캐싱 전/후 성능 비교 기준선
  *
  * 실행:
- *   k6 run k6/scenarios/01_auth_flow.js
+ *   k6 run k6/scenarios/01_auth_flow.js                         (기본 SCALE=80)
+ *   k6 run -e SCALE=100   k6/scenarios/01_auth_flow.js
+ *   k6 run -e SCALE=1000  k6/scenarios/01_auth_flow.js
+ *   k6 run -e SCALE=10000 k6/scenarios/01_auth_flow.js
  *
  * 결과 저장 (비교용):
- *   k6 run --out json=results/login_before_redis.json k6/scenarios/01_auth_flow.js
- *   k6 run --out json=results/login_after_redis.json  k6/scenarios/01_auth_flow.js  (Redis 적용 후)
+ *   k6 run -e SCALE=100 --out json=k6/results/01_auth_scale100.json k6/scenarios/01_auth_flow.js
  *
  * Grafana 확인 지표:
  *   - http_req_duration{name="login"}         → 로그인 응답시간 (핵심)
@@ -19,19 +21,25 @@ import { sleep, check } from 'k6';
 import { BASE_URL } from '../utils/auth.js';
 import { randomEmail, randomNickname } from '../utils/data.js';
 
+// 저녁 피크 VU 수 (기본 80). 러시아워 비율은 고정 유지.
+const SCALE   = parseInt(__ENV.SCALE) || 80;
+const MORNING = Math.ceil(SCALE * 0.625);  // 아침 피크 (원래 50/80)
+const LULL    = Math.ceil(SCALE * 0.1875); // 한가한 낮 (원래 15/80)
+const EVENING = SCALE;                      // 저녁 피크 (원래 80)
+
 export const options = {
     scenarios: {
         rush_hour: {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '2m', target: 50 },  // 아침 러시 시작 (출근 시작)
-                { duration: '2m', target: 50 },  // 아침 피크 유지 (7~9시)
-                { duration: '2m', target: 15 },  // 러시 완화 (업무 시작)
-                { duration: '2m', target: 15 },  // 한가한 낮
-                { duration: '2m', target: 80 },  // 저녁 러시 시작 (퇴근, 18~20시)
-                { duration: '2m', target: 80 },  // 저녁 피크 유지
-                { duration: '2m', target: 0 },   // 러시 종료
+                { duration: '2m', target: MORNING },  // 아침 러시 시작 (출근 시작)
+                { duration: '2m', target: MORNING },  // 아침 피크 유지 (7~9시)
+                { duration: '2m', target: LULL    },  // 러시 완화 (업무 시작)
+                { duration: '2m', target: LULL    },  // 한가한 낮
+                { duration: '2m', target: EVENING },  // 저녁 러시 시작 (퇴근, 18~20시)
+                { duration: '2m', target: EVENING },  // 저녁 피크 유지
+                { duration: '2m', target: 0       },  // 러시 종료
             ],
         },
     },
