@@ -15,11 +15,12 @@ import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
-    @Query("SELECT DISTINCT p FROM Post p LEFT JOIN FETCH p.tags WHERE p.deleted = false ORDER BY p.createdAt DESC")
+    @Query("SELECT DISTINCT p FROM Post p LEFT JOIN FETCH p.tags WHERE p.deleted = false AND p.status = 'OPEN' AND p.departureTime >= CURRENT_TIMESTAMP ORDER BY p.departureTime ASC")
     List<Post> findByDeletedFalseWithTagsOrderByCreatedAtDesc();
 
-    // 페이지네이션용: SQL LIMIT 적용 (tags 미포함 — 컬렉션 fetch와 Pageable 혼용 시 in-memory 페이징 발생)
-    @Query("SELECT p FROM Post p WHERE p.deleted = false ORDER BY p.createdAt DESC")
+    // OPEN 상태 + 미래 출발만 조회 (status, departure_time 복합 인덱스 활용)
+    @Query(value = "SELECT p FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' AND p.departureTime >= CURRENT_TIMESTAMP ORDER BY p.departureTime ASC",
+           countQuery = "SELECT COUNT(p) FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' AND p.departureTime >= CURRENT_TIMESTAMP")
     Page<Post> findPageByDeletedFalse(Pageable pageable);
 
     // 특정 ID 목록의 tags 배치 로드

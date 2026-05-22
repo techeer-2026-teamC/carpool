@@ -15,7 +15,9 @@ import java.util.stream.Collectors;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "posts")
+@Table(name = "posts", indexes = {
+        @Index(name = "idx_posts_status_departure_time", columnList = "status, departure_time")
+})
 @Getter
 @NoArgsConstructor(access = PROTECTED)
 public class Post extends SoftDeletableEntity {
