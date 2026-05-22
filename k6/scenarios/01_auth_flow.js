@@ -1,33 +1,45 @@
 /**
- * 시나리오 1: Auth Flow
- * 목적: 회원가입 → 로그인 → 토큰 갱신 → 로그아웃 사이클의 처리량 측정
- * JWT 발급 지연과 Redis 토큰 저장 압박을 검증
- * 실행: k6 run k6/scenarios/01_auth_flow.js
+ * 시나리오 1: 로그인 부하테스트 — 출퇴근 러시아워 시뮬레이션
+ * 목적: 아침/저녁 출퇴근 트래픽 패턴 재현 → Redis JWT 캐싱 전/후 성능 비교 기준선
+ *
+ * 실행:
+ *   k6 run k6/scenarios/01_auth_flow.js
+ *
+ * 결과 저장 (비교용):
+ *   k6 run --out json=results/login_before_redis.json k6/scenarios/01_auth_flow.js
+ *   k6 run --out json=results/login_after_redis.json  k6/scenarios/01_auth_flow.js  (Redis 적용 후)
+ *
+ * Grafana 확인 지표:
+ *   - http_req_duration{name="login"}         → 로그인 응답시간 (핵심)
+ *   - http_req_duration{name="token_refresh"} → 토큰 갱신 응답시간
+ *   - http_req_failed                         → 에러율
  */
 import http from 'k6/http';
 import { sleep, check } from 'k6';
-import { BASE_URL, signup, login, logout } from '../utils/auth.js';
+import { BASE_URL } from '../utils/auth.js';
 import { randomEmail, randomNickname } from '../utils/data.js';
 
 export const options = {
     scenarios: {
-        auth_ramp: {
+        rush_hour: {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '30s', target: 20 },
-                { duration: '1m',  target: 20 },
-                { duration: '30s', target: 50 },
-                { duration: '1m',  target: 50 },
-                { duration: '30s', target: 0  },
+                { duration: '2m', target: 50 },  // 아침 러시 시작 (출근 시작)
+                { duration: '2m', target: 50 },  // 아침 피크 유지 (7~9시)
+                { duration: '2m', target: 15 },  // 러시 완화 (업무 시작)
+                { duration: '2m', target: 15 },  // 한가한 낮
+                { duration: '2m', target: 80 },  // 저녁 러시 시작 (퇴근, 18~20시)
+                { duration: '2m', target: 80 },  // 저녁 피크 유지
+                { duration: '2m', target: 0 },   // 러시 종료
             ],
         },
     },
     thresholds: {
-        http_req_duration: ['p(95)<500'],
-        http_req_failed:   ['rate<0.02'],
-        'http_req_duration{endpoint:login}':  ['p(95)<300'],
-        'http_req_duration{endpoint:signup}': ['p(95)<800'],
+        'http_req_duration{name:login}':         ['p(95)<500'],
+        'http_req_duration{name:token_refresh}': ['p(95)<300'],
+        'http_req_duration{name:signup}':        ['p(95)<800'],
+        'http_req_failed':                       ['rate<0.01'],
     },
 };
 
@@ -40,16 +52,16 @@ export default function () {
     const signupRes = http.post(
         `${BASE_URL}/api/v1/auth/signup`,
         JSON.stringify({ email, password, nickname }),
-        { headers: { 'Content-Type': 'application/json' }, tags: { endpoint: 'signup' } }
+        { headers: { 'Content-Type': 'application/json' }, tags: { name: 'signup' } }
     );
     check(signupRes, { 'signup 201': (r) => r.status === 201 });
-    sleep(0.5);
+    sleep(0.3);
 
-    // 2. 로그인
+    // 2. 로그인 (핵심 측정 지표 — Redis 캐싱 전/후 비교 대상)
     const loginRes = http.post(
         `${BASE_URL}/api/v1/auth/login`,
         JSON.stringify({ email, password }),
-        { headers: { 'Content-Type': 'application/json' }, tags: { endpoint: 'login' } }
+        { headers: { 'Content-Type': 'application/json' }, tags: { name: 'login' } }
     );
     if (!check(loginRes, { 'login 200': (r) => r.status === 200 })) {
         sleep(1);
@@ -58,14 +70,16 @@ export default function () {
     const token = loginRes.json('data.accessToken');
     sleep(0.5);
 
-    // 3. 토큰 갱신 (쿠키 기반 — k6 쿠키 jar가 자동 처리)
-    const refreshRes = http.post(
-        `${BASE_URL}/api/v1/auth/refresh`,
-        null,
-        { headers: { 'Content-Type': 'application/json' }, tags: { endpoint: 'refresh' } }
-    );
-    check(refreshRes, { 'refresh 200 or 401': (r) => r.status === 200 || r.status === 401 });
-    sleep(0.5);
+    // 3. 토큰 갱신 (출퇴근 시 앱 재진입 패턴, 70% 확률)
+    if (Math.random() < 0.7) {
+        const refreshRes = http.post(
+            `${BASE_URL}/api/v1/auth/refresh`,
+            null,
+            { headers: { 'Content-Type': 'application/json' }, tags: { name: 'token_refresh' } }
+        );
+        check(refreshRes, { 'refresh 200 or 401': (r) => r.status === 200 || r.status === 401 });
+        sleep(0.3);
+    }
 
     // 4. 로그아웃
     const logoutRes = http.post(
@@ -73,9 +87,10 @@ export default function () {
         null,
         {
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            tags: { endpoint: 'logout' },
+            tags: { name: 'logout' },
         }
     );
     check(logoutRes, { 'logout 200': (r) => r.status === 200 });
-    sleep(1);
+
+    sleep(Math.random() * 2 + 0.5);
 }

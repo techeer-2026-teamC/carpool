@@ -28,3 +28,5 @@ replay_pid*
 
 # Docker database data
 postgres_data/
+# k6 성능 비교 결과 파일
+k6/results/

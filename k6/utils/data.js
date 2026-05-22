@@ -27,11 +27,17 @@ export function randomNickname() {
     return `user_${randomString(6)}`;
 }
 
+// toISOString()은 UTC 반환 → 서버의 @Future 검증(로컬 타임)이 과거로 판단하는 버그 방지
+function toLocalISOString(date) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+           `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 export function randomPostPayload(futureMinutes = 60) {
     const dep = DEPARTURES[randomIntBetween(0, DEPARTURES.length - 1)];
     const dst = DESTINATIONS[randomIntBetween(0, DESTINATIONS.length - 1)];
-    const departureTime = new Date(Date.now() + futureMinutes * 60 * 1000)
-        .toISOString().replace('Z', '');
+    const departureTime = toLocalISOString(new Date(Date.now() + futureMinutes * 60 * 1000));
     return {
         title: `${dep.name} → ${dst.name}`,
         departureLocation: dep.name,
@@ -66,4 +72,14 @@ export function randomLocation(baseLat = 37.5, baseLng = 127.0) {
         latitude: baseLat + (Math.random() - 0.5) * 0.05,
         longitude: baseLng + (Math.random() - 0.5) * 0.05,
     };
+}
+
+// STOMP over WebSocket 헬퍼 (k6/ws 모듈용 raw frame 생성)
+export function stompConnectFrame(token) {
+    return `CONNECT\naccept-version:1.2\nheart-beat:0,0\nAuthorization:Bearer ${token}\n\n\0`;
+}
+
+export function stompSendLocationFrame(rideId, latitude, longitude) {
+    const body = JSON.stringify({ latitude, longitude });
+    return `SEND\ndestination:/app/ride/${rideId}/location\ncontent-type:application/json\ncontent-length:${body.length}\n\n${body}\0`;
 }

@@ -2,6 +2,7 @@ import http from 'k6/http';
 import { check } from 'k6';
 
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+export const WS_URL   = (BASE_URL.replace(/^http/, 'ws')) + '/ws';
 
 export function signup(email, password, nickname) {
     const res = http.post(
