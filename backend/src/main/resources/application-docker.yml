@@ -1,6 +1,11 @@
 spring:
   main:
     lazy-initialization: true
+  datasource:
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 5
+      connection-timeout: 10000
   jpa:
     hibernate:
       ddl-auto: update
