@@ -1,8 +1,10 @@
 package com.techeer.carpool.domain.ride.dto;
 
-import com.techeer.carpool.domain.ride.entity.Ride;
+import com.techeer.carpool.domain.ride.entity.RideLocation;
 import lombok.Builder;
 import lombok.Getter;
+
+import java.time.LocalDateTime;
 
 @Getter
 @Builder
@@ -11,12 +13,17 @@ public class LocationResponse {
     private Long rideId;
     private Double driverLatitude;
     private Double driverLongitude;
+    private LocalDateTime recordedAt;
 
-    public static LocationResponse from(Ride ride) {
+    public static LocationResponse from(Long rideId, RideLocation location) {
+        if (location == null) {
+            return LocationResponse.builder().rideId(rideId).build();
+        }
         return LocationResponse.builder()
-                .rideId(ride.getId())
-                .driverLatitude(ride.getCurrentLatitude())
-                .driverLongitude(ride.getCurrentLongitude())
+                .rideId(rideId)
+                .driverLatitude(location.getLatitude())
+                .driverLongitude(location.getLongitude())
+                .recordedAt(location.getRecordedAt())
                 .build();
     }
 }

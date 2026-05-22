@@ -19,6 +19,8 @@ import com.techeer.carpool.domain.ride.entity.Ride;
 import com.techeer.carpool.domain.ride.entity.RidePassenger;
 import com.techeer.carpool.domain.ride.entity.RideStatus;
 import com.techeer.carpool.domain.ride.entity.PassengerStatus;
+import com.techeer.carpool.domain.ride.entity.RideLocation;
+import com.techeer.carpool.domain.ride.repository.RideLocationRepository;
 import com.techeer.carpool.domain.ride.repository.RidePassengerRepository;
 import com.techeer.carpool.domain.ride.repository.RideRepository;
 import com.techeer.carpool.domain.driver.entity.CarColor;
@@ -46,6 +48,7 @@ public class LocalDataInitializer implements CommandLineRunner {
     private final ApplicationRepository applicationRepository;
     private final CommentRepository commentRepository;
     private final RideRepository rideRepository;
+    private final RideLocationRepository rideLocationRepository;
     private final RidePassengerRepository ridePassengerRepository;
     private final ReviewRepository reviewRepository;
     private final PasswordEncoder passwordEncoder;
@@ -284,7 +287,7 @@ public class LocalDataInitializer implements CommandLineRunner {
                     postRepository.save(p);
                 });
 
-        // IN_PROGRESS 운행: startedAt·boardedAt을 지금 기준으로 갱신
+        // IN_PROGRESS 운행: startedAt·boardedAt·위치를 지금 기준으로 갱신
         rideRepository.findFirstByStatus(RideStatus.IN_PROGRESS)
                 .ifPresent(r -> {
                     r.refreshStartedAt(LocalDateTime.now().minusMinutes(20));
@@ -294,6 +297,7 @@ public class LocalDataInitializer implements CommandLineRunner {
                                 rp.refreshBoardedAt(LocalDateTime.now().minusMinutes(18));
                                 ridePassengerRepository.save(rp);
                             });
+                    rideLocationRepository.save(RideLocation.of(r.getId(), 37.5133, 127.0700));
                 });
     }
 
@@ -329,10 +333,9 @@ public class LocalDataInitializer implements CommandLineRunner {
                 .postId(p4.getId())
                 .driverId(admin.getId())
                 .status(RideStatus.IN_PROGRESS)
-                .currentLatitude(37.5133)
-                .currentLongitude(127.0700)
                 .startedAt(LocalDateTime.now().minusMinutes(20))
                 .build());
+        rideLocationRepository.save(RideLocation.of(ride2.getId(), 37.5133, 127.0700));
         ridePassengerRepository.save(RidePassenger.builder()
                 .ride(ride2)
                 .applicationId(appB.getId())

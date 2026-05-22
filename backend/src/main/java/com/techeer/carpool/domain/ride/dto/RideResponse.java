@@ -16,8 +16,6 @@ public class RideResponse {
     private Long postId;
     private Long driverId;
     private RideStatus status;
-    private Double currentLatitude;
-    private Double currentLongitude;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
 
@@ -39,8 +37,6 @@ public class RideResponse {
                 .postId(ride.getPostId())
                 .driverId(ride.getDriverId())
                 .status(ride.getStatus())
-                .currentLatitude(ride.getCurrentLatitude())
-                .currentLongitude(ride.getCurrentLongitude())
                 .startedAt(ride.getStartedAt())
                 .completedAt(ride.getCompletedAt())
                 .departureTime(post != null ? post.getDepartureTime() : null)

@@ -30,9 +30,6 @@ public class Ride extends BaseEntity {
     @Builder.Default             // @Builder 사용 시 기본값 설정 (안 쓰면 null이 됨)
     private RideStatus status = RideStatus.SCHEDULED;  // 운행 상태, 기본값은 "예정"
 
-    private Double currentLatitude;   // 드라이버의 현재 위도
-    private Double currentLongitude;  // 드라이버의 현재 경도
-
     private LocalDateTime startedAt;    // 운행 시작 시각
     private LocalDateTime completedAt;  // 운행 종료 시각
 
@@ -70,12 +67,4 @@ public class Ride extends BaseEntity {
         this.completedAt = LocalDateTime.now();   // 종료 시각 기록
     }
 
-    // 드라이버 위치 업데이트 (출발 30분 전(SCHEDULED) 또는 운행 중(IN_PROGRESS) 허용)
-    public void updateLocation(Double latitude, Double longitude) {
-        if (this.status == RideStatus.COMPLETED) {
-            throw new IllegalStateException("완료된 운행은 위치를 업데이트할 수 없습니다.");
-        }
-        this.currentLatitude = latitude;
-        this.currentLongitude = longitude;
-    }
 }
