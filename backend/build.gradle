@@ -49,6 +49,9 @@ dependencies {
 
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
+	implementation 'org.springframework.retry:spring-retry:2.0.11'
+	implementation 'org.springframework:spring-aspects'
 }
 
 tasks.named('test') {
