@@ -13,7 +13,7 @@ services:
       DB_PASSWORD: password
       REDIS_HOST: redis
       JWT_SECRET: docker-load-test-secret-key-min32chars!!
-      JAVA_TOOL_OPTIONS: "-Xmx768m -Xms256m"
+      JAVA_TOOL_OPTIONS: "-Xmx384m -Xms128m"
     depends_on:
       db:
         condition: service_healthy
@@ -23,8 +23,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 1g
+          cpus: '1.0'
+          memory: 512m
 
   db:
     image: postgres:15
@@ -45,8 +45,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 1g
+          cpus: '1.0'
+          memory: 512m
 
   redis:
     image: redis:7-alpine
@@ -60,6 +60,7 @@ services:
           memory: 256m
 
   prometheus:
+    profiles: [monitoring]
     image: prom/prometheus:v2.51.0
     container_name: carpool-prometheus
     ports:
@@ -76,6 +77,7 @@ services:
     restart: unless-stopped
 
   grafana:
+    profiles: [monitoring]
     image: grafana/grafana:10.4.2
     container_name: carpool-grafana
     ports:
