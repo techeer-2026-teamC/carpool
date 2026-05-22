@@ -1,0 +1,12 @@
+spring:
+  main:
+    lazy-initialization: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+jwt:
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+  cookie-secure: false
