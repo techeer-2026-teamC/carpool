@@ -77,15 +77,6 @@ public class RideController {
         return ResponseEntity.ok(ApiResponse.of("운행이 종료되었습니다.", rideService.completeRide(rideId, driverId)));
     }
 
-    @PostMapping("/{rideId}/location")
-    public ResponseEntity<ApiResponse<LocationResponse>> updateLocation(
-            @PathVariable Long rideId,
-            @RequestBody @Valid LocationUpdateRequest request,
-            Authentication authentication) {
-        Long driverId = (Long) authentication.getPrincipal();
-        return ResponseEntity.ok(ApiResponse.of("위치가 업데이트되었습니다.", rideService.updateLocation(rideId, request, driverId)));
-    }
-
     @GetMapping("/{rideId}/location")
     public ResponseEntity<ApiResponse<LocationResponse>> getLocation(@PathVariable Long rideId) {
         return ResponseEntity.ok(ApiResponse.of("드라이버 위치 조회 성공", rideService.getLocation(rideId)));

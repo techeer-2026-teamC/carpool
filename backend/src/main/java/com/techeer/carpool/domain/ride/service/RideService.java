@@ -16,6 +16,8 @@ import com.techeer.carpool.domain.ride.dto.*;
 import com.techeer.carpool.domain.ride.entity.Ride;
 import com.techeer.carpool.domain.ride.entity.RidePassenger;
 import com.techeer.carpool.domain.ride.entity.RideStatus;
+import com.techeer.carpool.domain.ride.entity.RideLocation;
+import com.techeer.carpool.domain.ride.repository.RideLocationRepository;
 import com.techeer.carpool.domain.ride.repository.RidePassengerRepository;
 import com.techeer.carpool.domain.ride.repository.RideRepository;
 import com.techeer.carpool.global.exception.CarpoolException;
@@ -35,6 +37,7 @@ import java.util.stream.Collectors;
 public class RideService {
 
     private final RideRepository rideRepository;
+    private final RideLocationRepository rideLocationRepository;
     private final RidePassengerRepository ridePassengerRepository;
     private final PostRepository postRepository;
     private final DriverRepository driverRepository;
@@ -128,24 +131,17 @@ public class RideService {
     }
 
     @Transactional
-    public LocationResponse updateLocation(Long rideId, LocationUpdateRequest request, Long requesterId) {
-        Ride ride = findRideById(rideId);
-        validateDriver(ride, requesterId);
-        ride.updateLocation(request.getLatitude(), request.getLongitude());
-        carpoolMetrics.incrementLocationUpdated();
-        return LocationResponse.from(ride);
-    }
-
-    @Transactional
     public void updateLocationDirect(Long rideId, Double latitude, Double longitude, Long requesterId) {
         Ride ride = rideRepository.findById(rideId).orElse(null);
         if (ride == null || !ride.getDriverId().equals(requesterId)) return;
         if (ride.getStatus() == RideStatus.COMPLETED) return;
-        ride.updateLocation(latitude, longitude);
+        rideLocationRepository.save(RideLocation.of(rideId, latitude, longitude));
+        carpoolMetrics.incrementLocationUpdated();
     }
 
     public LocationResponse getLocation(Long rideId) {
-        return LocationResponse.from(findRideById(rideId));
+        RideLocation latest = rideLocationRepository.findTopByRideIdOrderByRecordedAtDesc(rideId).orElse(null);
+        return LocationResponse.from(rideId, latest);
     }
 
     public List<RideResponse> getMyRidesAsDriver(Long driverId) {
