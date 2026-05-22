@@ -18,4 +18,6 @@ public interface RideRepository extends JpaRepository<Ride, Long> {
 
     @Query("SELECT r FROM Ride r JOIN FETCH r.passengers WHERE r.id = :rideId")
     Optional<Ride> findByIdWithPassengers(@Param("rideId") Long rideId);
+
+    Optional<Ride> findFirstByStatus(RideStatus status);
 }
