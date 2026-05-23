@@ -2,6 +2,7 @@ package com.techeer.carpool.global.config;
 
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.global.jwt.JwtAuthenticationFilter;
+import com.techeer.carpool.global.jwt.JwtClaimsCacheRepository;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +27,7 @@ public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final BlacklistRedisRepository blacklistRedisRepository;
+    private final JwtClaimsCacheRepository jwtClaimsCacheRepository;
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigin;
@@ -51,7 +53,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) ->
                                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, blacklistRedisRepository),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, blacklistRedisRepository, jwtClaimsCacheRepository),
                         UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
