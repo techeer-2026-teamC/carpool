@@ -38,4 +38,13 @@ public class RideLocation {
                 .recordedAt(LocalDateTime.now())
                 .build();
     }
+
+    public static RideLocation of(Long rideId, Double latitude, Double longitude, LocalDateTime recordedAt) {
+        return RideLocation.builder()
+                .rideId(rideId)
+                .latitude(latitude)
+                .longitude(longitude)
+                .recordedAt(recordedAt)
+                .build();
+    }
 }

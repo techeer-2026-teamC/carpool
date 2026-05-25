@@ -17,9 +17,12 @@ import com.techeer.carpool.domain.ride.entity.Ride;
 import com.techeer.carpool.domain.ride.entity.RidePassenger;
 import com.techeer.carpool.domain.ride.entity.RideStatus;
 import com.techeer.carpool.domain.ride.entity.RideLocation;
+import com.techeer.carpool.domain.ride.repository.RideLocationRedisRepository;
 import com.techeer.carpool.domain.ride.repository.RideLocationRepository;
 import com.techeer.carpool.domain.ride.repository.RidePassengerRepository;
 import com.techeer.carpool.domain.ride.repository.RideRepository;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.metrics.CarpoolMetrics;
@@ -38,6 +41,7 @@ public class RideService {
 
     private final RideRepository rideRepository;
     private final RideLocationRepository rideLocationRepository;
+    private final RideLocationRedisRepository rideLocationRedisRepository;
     private final RidePassengerRepository ridePassengerRepository;
     private final PostRepository postRepository;
     private final DriverRepository driverRepository;
@@ -114,6 +118,22 @@ public class RideService {
         ride.complete();
         carpoolMetrics.incrementRideCompleted();
 
+        // Redis List → DB 배치 INSERT (Write-Behind flush)
+        List<RideLocationEntry> entries = rideLocationRedisRepository.getAll(rideId);
+        if (!entries.isEmpty()) {
+            List<RideLocation> locations = entries.stream()
+                    .map(e -> RideLocation.of(rideId, e.getLatitude(), e.getLongitude(), e.getRecordedAt()))
+                    .collect(Collectors.toList());
+            rideLocationRepository.saveAll(locations);
+        }
+        // DB 커밋 성공 후 Redis 키 삭제 (커밋 전 삭제 시 데이터 유실 방지)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                rideLocationRedisRepository.delete(rideId);
+            }
+        });
+
         List<Long> passengerIds = ride.getPassengers().stream()
                 .map(RidePassenger::getPassengerId)
                 .collect(Collectors.toList());
@@ -130,16 +150,21 @@ public class RideService {
         return RideResponse.from(ride, post);
     }
 
-    @Transactional
     public void updateLocationDirect(Long rideId, Double latitude, Double longitude, Long requesterId) {
         Ride ride = rideRepository.findById(rideId).orElse(null);
         if (ride == null || !ride.getDriverId().equals(requesterId)) return;
         if (ride.getStatus() == RideStatus.COMPLETED) return;
-        rideLocationRepository.save(RideLocation.of(rideId, latitude, longitude));
+        // DB 직접 저장 대신 Redis List에 append (Write-Behind)
+        rideLocationRedisRepository.push(rideId, latitude, longitude);
         carpoolMetrics.incrementLocationUpdated();
     }
 
     public LocationResponse getLocation(Long rideId) {
+        // 운행 중: Redis에서 최신 위치 조회, 없으면 DB fallback
+        RideLocationEntry entry = rideLocationRedisRepository.getLatest(rideId);
+        if (entry != null) {
+            return LocationResponse.fromEntry(rideId, entry);
+        }
         RideLocation latest = rideLocationRepository.findTopByRideIdOrderByRecordedAtDesc(rideId).orElse(null);
         return LocationResponse.from(rideId, latest);
     }
