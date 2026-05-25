@@ -31,6 +31,15 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     Optional<Post> findByIdAndDeletedFalse(Long id);
 
+    // 출발 시간이 지났지만 아직 OPEN 상태인 게시글 (자동 마감 대상)
+    @Query("SELECT p FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' AND p.departureTime <= :now")
+    List<Post> findExpiredOpenPosts(@Param("now") LocalDateTime now);
+
+    // 출발 N분 전 게시글 (드라이버 임박 알림 대상)
+    @Query("SELECT p FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' " +
+           "AND p.departureTime >= :from AND p.departureTime < :to")
+    List<Post> findApproachingOpenPosts(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
     @Query("SELECT p FROM Post p LEFT JOIN FETCH p.tags WHERE p.id = :id AND p.deleted = false")
     Optional<Post> findByIdAndDeletedFalseWithTags(@Param("id") Long id);
 

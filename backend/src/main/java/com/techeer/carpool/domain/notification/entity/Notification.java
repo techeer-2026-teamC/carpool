@@ -110,6 +110,15 @@ public class Notification {
                 .build();
     }
 
+    public static Notification ofDepartureApproaching(Long receiverId, Long postId) {
+        return Notification.builder()
+                .type(NotificationType.DEPARTURE_APPROACHING)
+                .receiverId(receiverId)
+                .referenceId(postId)
+                .message("1시간 후 출발 예정입니다. 카풀을 마감해 주세요.")
+                .build();
+    }
+
     public void markAsRead() {
         if (this.readAt == null) {
             this.readAt = LocalDateTime.now();
