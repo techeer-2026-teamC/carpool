@@ -26,4 +26,13 @@ public class LocationResponse {
                 .recordedAt(location.getRecordedAt())
                 .build();
     }
+
+    public static LocationResponse fromEntry(Long rideId, RideLocationEntry entry) {
+        return LocationResponse.builder()
+                .rideId(rideId)
+                .driverLatitude(entry.getLatitude())
+                .driverLongitude(entry.getLongitude())
+                .recordedAt(entry.getRecordedAt())
+                .build();
+    }
 }
