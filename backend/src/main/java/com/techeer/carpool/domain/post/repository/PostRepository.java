@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -37,4 +39,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Optional<Post> findByIdAndDeletedFalseWithLock(@Param("id") Long id);
 
     List<Post> findByMemberIdAndDeletedFalse(Long memberId);
+
+    // 오늘~+48h 출발 게시글만 조회 (캐싱 대상)
+    @Query(value = "SELECT p FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' " +
+                   "AND p.departureTime >= :from AND p.departureTime < :to ORDER BY p.departureTime ASC",
+           countQuery = "SELECT COUNT(p) FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' " +
+                        "AND p.departureTime >= :from AND p.departureTime < :to")
+    Page<Post> findUpcomingPaged(@Param("from") LocalDateTime from,
+                                 @Param("to") LocalDateTime to,
+                                 Pageable pageable);
 }

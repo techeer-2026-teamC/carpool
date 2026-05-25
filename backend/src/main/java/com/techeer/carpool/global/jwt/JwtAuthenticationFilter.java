@@ -23,6 +23,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final BlacklistRedisRepository blacklistRedisRepository;
+    private final JwtClaimsCacheRepository jwtClaimsCacheRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -36,7 +37,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     filterChain.doFilter(request, response);
                     return;
                 }
-                Long memberId = jwtTokenProvider.getMemberIdFromToken(token);
+
+                // 캐시 히트: HMAC 검증 스킵
+                Long memberId = jwtClaimsCacheRepository.findMemberId(token).orElse(null);
+                if (memberId == null) {
+                    // 캐시 미스: HMAC 검증 후 캐싱
+                    memberId = jwtTokenProvider.getMemberIdFromToken(token);
+                    long remaining = jwtTokenProvider.getRemainingSeconds(token);
+                    jwtClaimsCacheRepository.save(token, memberId, remaining);
+                }
+
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(memberId, null, List.of());
                 SecurityContextHolder.getContext().setAuthentication(authentication);

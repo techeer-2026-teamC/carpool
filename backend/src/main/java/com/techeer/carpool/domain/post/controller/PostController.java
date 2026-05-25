@@ -40,7 +40,7 @@ public class PostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PageRequest pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(ApiResponse.of("게시글 목록 조회 성공", postService.getPagedPosts(pageable)));
+        return ResponseEntity.ok(ApiResponse.of("게시글 목록 조회 성공", postService.getUpcomingPagedPosts(pageable)));
     }
 
     @GetMapping("/{id}")

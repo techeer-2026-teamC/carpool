@@ -16,9 +16,13 @@ import com.techeer.carpool.domain.notification.service.NotificationService;
 import com.techeer.carpool.domain.notification.type.NotificationType;
 import com.techeer.carpool.domain.post.dto.PostCreateRequest;
 import com.techeer.carpool.domain.post.dto.PostDetailResponse;
+import com.techeer.carpool.domain.post.dto.PostPageCache;
 import com.techeer.carpool.domain.post.dto.PostSummaryResponse;
 import com.techeer.carpool.domain.post.dto.PostUpdateRequest;
+import com.techeer.carpool.global.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import com.techeer.carpool.domain.post.entity.Post;
 import com.techeer.carpool.domain.post.entity.PostUpdateCommand;
@@ -50,7 +54,9 @@ public class PostService {
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
     private final CarpoolMetrics carpoolMetrics;
+    private final PostUpcomingCacheService postUpcomingCacheService;
 
+    @CacheEvict(cacheNames = CacheConfig.UPCOMING_POSTS, allEntries = true)
     @Transactional
     public PostDetailResponse createPost(PostCreateRequest request, Long memberId) {
         Driver driver = driverRepository.findByMemberIdAndDeletedFalse(memberId)
@@ -94,6 +100,12 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
+    public Page<PostSummaryResponse> getUpcomingPagedPosts(Pageable pageable) {
+        PostPageCache cached = postUpcomingCacheService.getUpcoming(pageable.getPageNumber(), pageable.getPageSize());
+        return new PageImpl<>(cached.getContent(), pageable, cached.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
     public Page<PostSummaryResponse> getPagedPosts(Pageable pageable) {
         // 1단계: SQL LIMIT/OFFSET으로 페이지 ID 목록 조회
         Page<Post> postPage = postRepository.findPageByDeletedFalse(pageable);
@@ -128,6 +140,7 @@ public class PostService {
         return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), rating, commentResponses);
     }
 
+    @CacheEvict(cacheNames = CacheConfig.UPCOMING_POSTS, allEntries = true)
     @Transactional
     public PostDetailResponse updatePost(Long id, PostUpdateRequest request, Long requesterId) {
         Post post = postRepository.findByIdAndDeletedFalse(id)
@@ -156,6 +169,7 @@ public class PostService {
         return PostDetailResponse.from(post, fetchNickname(post.getMemberId()), rating, List.of());
     }
 
+    @CacheEvict(cacheNames = CacheConfig.UPCOMING_POSTS, allEntries = true)
     @Transactional
     public void deletePost(Long id, Long requesterId) {
         Post post = postRepository.findByIdAndDeletedFalse(id)
