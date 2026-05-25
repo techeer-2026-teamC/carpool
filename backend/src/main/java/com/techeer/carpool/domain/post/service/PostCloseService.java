@@ -16,10 +16,12 @@ import com.techeer.carpool.domain.ride.entity.Ride;
 import com.techeer.carpool.domain.ride.entity.RidePassenger;
 import com.techeer.carpool.domain.ride.repository.RidePassengerRepository;
 import com.techeer.carpool.domain.ride.repository.RideRepository;
+import com.techeer.carpool.global.config.CacheConfig;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +43,7 @@ public class PostCloseService {
     private final CarpoolMetrics carpoolMetrics;
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.UPCOMING_POSTS, allEntries = true)
     public void closePost(Long postId, Long requesterId) {
         driverRepository.findByMemberIdAndDeletedFalse(requesterId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
