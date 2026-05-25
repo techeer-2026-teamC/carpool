@@ -36,6 +36,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -112,6 +114,46 @@ public class PostService {
         List<Long> ids = postPage.stream().map(Post::getId).collect(Collectors.toList());
 
         // 2단계: 해당 ID들만 tags 배치 로드 (N+1 방지)
+        Map<Long, Post> postsWithTags = postRepository.findByIdsWithTags(ids).stream()
+                .collect(Collectors.toMap(Post::getId, p -> p));
+
+        Set<Long> memberIds = postPage.stream().map(Post::getMemberId).collect(Collectors.toSet());
+        Map<Long, String> nicknameMap = memberRepository.findAllById(memberIds).stream()
+                .collect(Collectors.toMap(Member::getId, Member::getNickname));
+        Map<Long, Double> ratingMap = driverRepository.findByMemberIdInAndDeletedFalse(memberIds).stream()
+                .collect(Collectors.toMap(Driver::getMemberId, Driver::getAverageRating));
+
+        return postPage.map(p -> PostSummaryResponse.from(
+                postsWithTags.getOrDefault(p.getId(), p),
+                nicknameMap.getOrDefault(p.getMemberId(), "알 수 없음"),
+                ratingMap.getOrDefault(p.getMemberId(), 0.0)));
+    }
+
+    /**
+     * 날짜/위치 필터 기반 게시글 조회. 캐시 미사용.
+     * lat/lng/radiusKm 제공 시 바운딩 박스로 근접 게시글만 반환.
+     */
+    @Transactional(readOnly = true)
+    public Page<PostSummaryResponse> getFilteredPosts(
+            Pageable pageable, LocalDate date, Double lat, Double lng, Double radiusKm) {
+
+        LocalDateTime fromDate = date != null ? date.atStartOfDay() : null;
+        LocalDateTime toDate   = date != null ? date.plusDays(1).atStartOfDay() : null;
+
+        Double minLat = null, maxLat = null, minLng = null, maxLng = null;
+        if (lat != null && lng != null) {
+            double radius = radiusKm != null ? radiusKm : 5.0;
+            double latDelta = radius / 111.0;
+            double lngDelta = radius / (111.0 * Math.cos(Math.toRadians(lat)));
+            minLat = lat - latDelta;
+            maxLat = lat + latDelta;
+            minLng = lng - lngDelta;
+            maxLng = lng + lngDelta;
+        }
+
+        Page<Post> postPage = postRepository.findFiltered(
+                fromDate, toDate, minLat, maxLat, minLng, maxLng, pageable);
+        List<Long> ids = postPage.stream().map(Post::getId).collect(Collectors.toList());
         Map<Long, Post> postsWithTags = postRepository.findByIdsWithTags(ids).stream()
                 .collect(Collectors.toMap(Post::getId, p -> p));
 
