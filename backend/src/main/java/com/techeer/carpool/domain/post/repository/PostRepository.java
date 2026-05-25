@@ -57,4 +57,31 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findUpcomingPaged(@Param("from") LocalDateTime from,
                                  @Param("to") LocalDateTime to,
                                  Pageable pageable);
+
+    // 날짜/위치(바운딩 박스) 기반 필터링 (선택적 파라미터)
+    @Query(value = "SELECT p FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' " +
+                   "AND p.departureTime >= CURRENT_TIMESTAMP " +
+                   "AND (:fromDate IS NULL OR p.departureTime >= :fromDate) " +
+                   "AND (:toDate IS NULL OR p.departureTime < :toDate) " +
+                   "AND (:minLat IS NULL OR p.departureLat >= :minLat) " +
+                   "AND (:maxLat IS NULL OR p.departureLat <= :maxLat) " +
+                   "AND (:minLng IS NULL OR p.departureLng >= :minLng) " +
+                   "AND (:maxLng IS NULL OR p.departureLng <= :maxLng) " +
+                   "ORDER BY p.departureTime ASC",
+           countQuery = "SELECT COUNT(p) FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' " +
+                        "AND p.departureTime >= CURRENT_TIMESTAMP " +
+                        "AND (:fromDate IS NULL OR p.departureTime >= :fromDate) " +
+                        "AND (:toDate IS NULL OR p.departureTime < :toDate) " +
+                        "AND (:minLat IS NULL OR p.departureLat >= :minLat) " +
+                        "AND (:maxLat IS NULL OR p.departureLat <= :maxLat) " +
+                        "AND (:minLng IS NULL OR p.departureLng >= :minLng) " +
+                        "AND (:maxLng IS NULL OR p.departureLng <= :maxLng)")
+    Page<Post> findFiltered(
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
+            @Param("minLat") Double minLat,
+            @Param("maxLat") Double maxLat,
+            @Param("minLng") Double minLng,
+            @Param("maxLng") Double maxLng,
+            Pageable pageable);
 }

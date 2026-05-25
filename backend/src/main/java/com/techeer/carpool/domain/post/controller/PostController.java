@@ -11,11 +11,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -38,8 +40,17 @@ public class PostController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<PostSummaryResponse>>> getAllPosts(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
+            @RequestParam(required = false) Double radiusKm) {
         PageRequest pageable = PageRequest.of(page, size);
+        boolean hasFilter = date != null || (lat != null && lng != null);
+        if (hasFilter) {
+            return ResponseEntity.ok(ApiResponse.of("게시글 목록 조회 성공",
+                    postService.getFilteredPosts(pageable, date, lat, lng, radiusKm)));
+        }
         return ResponseEntity.ok(ApiResponse.of("게시글 목록 조회 성공", postService.getUpcomingPagedPosts(pageable)));
     }
 
