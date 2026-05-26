@@ -17,6 +17,9 @@ public interface RidePassengerRepository extends JpaRepository<RidePassenger, Lo
 
     List<RidePassenger> findAllByPassengerIdOrderByCreatedAtDesc(Long passengerId);
 
+    @Query("SELECT rp FROM RidePassenger rp JOIN FETCH rp.ride WHERE rp.passengerId = :passengerId ORDER BY rp.createdAt DESC")
+    List<RidePassenger> findAllByPassengerIdWithRideOrderByCreatedAtDesc(@Param("passengerId") Long passengerId);
+
     @Query("SELECT rp FROM RidePassenger rp JOIN FETCH rp.ride WHERE rp.passengerId = :passengerId AND rp.ride.status = :status ORDER BY rp.ride.completedAt DESC")
     List<RidePassenger> findByPassengerIdAndRideStatus(@Param("passengerId") Long passengerId, @Param("status") RideStatus status);
 }

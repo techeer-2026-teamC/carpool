@@ -13,6 +13,7 @@ import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -52,13 +53,18 @@ public class ReviewCreateService {
             throw new CarpoolException(ErrorCode.REVIEW_ALREADY_EXISTS);
         }
 
-        Review review = reviewRepository.save(Review.builder()
-                .rideId(rideId)
-                .reviewerId(reviewerId)
-                .driverId(ride.getDriverId())
-                .rating(request.getRating())
-                .comment(request.getComment())
-                .build());
+        Review review;
+        try {
+            review = reviewRepository.save(Review.builder()
+                    .rideId(rideId)
+                    .reviewerId(reviewerId)
+                    .driverId(ride.getDriverId())
+                    .rating(request.getRating())
+                    .comment(request.getComment())
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            throw new CarpoolException(ErrorCode.REVIEW_ALREADY_EXISTS);
+        }
 
         Driver driver = driverRepository.findByMemberIdAndDeletedFalseWithLock(ride.getDriverId())
                 .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
