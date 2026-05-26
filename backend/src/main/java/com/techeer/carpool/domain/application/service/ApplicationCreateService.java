@@ -17,6 +17,7 @@ import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -64,11 +65,19 @@ public class ApplicationCreateService {
                 .build();
 
         if (post.isAutoAccept()) {
+            if (post.isFull()) {
+                throw new CarpoolException(ErrorCode.APPLICATION_POST_FULL);
+            }
             application.accept();
             post.incrementPassengers();
         }
 
-        Application saved = applicationRepository.save(application);
+        Application saved;
+        try {
+            saved = applicationRepository.save(application);
+        } catch (DataIntegrityViolationException e) {
+            throw new CarpoolException(ErrorCode.APPLICATION_DUPLICATE);
+        }
         carpoolMetrics.incrementApplicationSubmitted();
 
         String nickname = memberRepository.findById(applicantId)
