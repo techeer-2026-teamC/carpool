@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -170,23 +171,25 @@ public class RideService {
     }
 
     public List<RideResponse> getMyRidesAsDriver(Long driverId) {
-        return rideRepository.findAllByDriverIdOrderByCreatedAtDesc(driverId)
-                .stream()
-                .map(ride -> {
-                    Post post = postRepository.findByIdAndDeletedFalse(ride.getPostId()).orElse(null);
-                    return RideResponse.from(ride, post);
-                })
+        List<Ride> rides = rideRepository.findAllByDriverIdOrderByCreatedAtDesc(driverId);
+        Set<Long> postIds = rides.stream().map(Ride::getPostId).collect(Collectors.toSet());
+        Map<Long, Post> postMap = postRepository.findAllById(postIds).stream()
+                .collect(Collectors.toMap(Post::getId, p -> p));
+        return rides.stream()
+                .map(ride -> RideResponse.from(ride, postMap.get(ride.getPostId())))
                 .collect(Collectors.toList());
     }
 
     public List<RideResponse> getMyRidesAsPassenger(Long passengerId) {
-        return ridePassengerRepository.findAllByPassengerIdOrderByCreatedAtDesc(passengerId)
-                .stream()
-                .map(rp -> {
-                    Ride ride = rp.getRide();
-                    Post post = postRepository.findByIdAndDeletedFalse(ride.getPostId()).orElse(null);
-                    return RideResponse.from(ride, post);
-                })
+        List<RidePassenger> ridePassengers =
+                ridePassengerRepository.findAllByPassengerIdWithRideOrderByCreatedAtDesc(passengerId);
+        Set<Long> postIds = ridePassengers.stream()
+                .map(rp -> rp.getRide().getPostId())
+                .collect(Collectors.toSet());
+        Map<Long, Post> postMap = postRepository.findAllById(postIds).stream()
+                .collect(Collectors.toMap(Post::getId, p -> p));
+        return ridePassengers.stream()
+                .map(rp -> RideResponse.from(rp.getRide(), postMap.get(rp.getRide().getPostId())))
                 .collect(Collectors.toList());
     }
 
