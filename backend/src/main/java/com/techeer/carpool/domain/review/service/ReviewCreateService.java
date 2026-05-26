@@ -13,6 +13,9 @@ import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +28,11 @@ public class ReviewCreateService {
     private final DriverRepository driverRepository;
     private final CarpoolMetrics carpoolMetrics;
 
+    @Retryable(
+            retryFor = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 50, multiplier = 1.5, random = true)
+    )
     @Transactional
     public ReviewResponse createReview(Long rideId, ReviewCreateRequest request, Long reviewerId) {
         Ride ride = rideRepository.findById(rideId)
@@ -52,7 +60,7 @@ public class ReviewCreateService {
                 .comment(request.getComment())
                 .build());
 
-        Driver driver = driverRepository.findByMemberIdAndDeletedFalse(ride.getDriverId())
+        Driver driver = driverRepository.findByMemberIdAndDeletedFalseWithLock(ride.getDriverId())
                 .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
         driver.addRating(request.getRating());
         carpoolMetrics.incrementReviewCreated();

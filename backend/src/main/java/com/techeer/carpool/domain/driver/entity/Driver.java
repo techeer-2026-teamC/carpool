@@ -20,6 +20,9 @@ public class Driver extends SoftDeletableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long driverId;
 
+    @Version
+    private Long version;
+
     @Column(nullable = false)
     private Long memberId;
 
