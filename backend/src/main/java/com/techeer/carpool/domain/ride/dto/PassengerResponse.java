@@ -14,6 +14,7 @@ public class PassengerResponse {
     private Long id;
     private Long applicationId;
     private Long passengerId;
+    private String nickname;
     private PassengerStatus status;
     private LocalDateTime boardedAt;
     private LocalDateTime droppedOffAt;
@@ -23,6 +24,18 @@ public class PassengerResponse {
                 .id(p.getId())
                 .applicationId(p.getApplicationId())
                 .passengerId(p.getPassengerId())
+                .status(p.getStatus())
+                .boardedAt(p.getBoardedAt())
+                .droppedOffAt(p.getDroppedOffAt())
+                .build();
+    }
+
+    public static PassengerResponse from(RidePassenger p, String nickname) {
+        return PassengerResponse.builder()
+                .id(p.getId())
+                .applicationId(p.getApplicationId())
+                .passengerId(p.getPassengerId())
+                .nickname(nickname)
                 .status(p.getStatus())
                 .boardedAt(p.getBoardedAt())
                 .droppedOffAt(p.getDroppedOffAt())
