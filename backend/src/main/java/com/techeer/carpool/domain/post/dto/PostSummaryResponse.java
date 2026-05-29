@@ -24,7 +24,11 @@ public class PostSummaryResponse {
     private double driverAverageRating;
     private String title;
     private String departureLocation;
+    private Double departureLat;
+    private Double departureLng;
     private String destinationLocation;
+    private Double destinationLat;
+    private Double destinationLng;
     private LocalDateTime departureTime;
     private int maxPassengers;
     private int currentPassengers;
@@ -42,7 +46,11 @@ public class PostSummaryResponse {
                 .driverAverageRating(driverAverageRating)
                 .title(post.getTitle())
                 .departureLocation(post.getDepartureLocation())
+                .departureLat(post.getDepartureLat())
+                .departureLng(post.getDepartureLng())
                 .destinationLocation(post.getDestinationLocation())
+                .destinationLat(post.getDestinationLat())
+                .destinationLng(post.getDestinationLng())
                 .departureTime(post.getDepartureTime())
                 .maxPassengers(post.getMaxPassengers())
                 .currentPassengers(post.getCurrentPassengers())

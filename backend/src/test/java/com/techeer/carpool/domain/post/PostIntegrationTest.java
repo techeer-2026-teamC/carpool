@@ -97,7 +97,7 @@ class PostIntegrationTest {
                 .title("강남 → 판교")
                 .departureLocation("강남역").departureLat(37.4979).departureLng(127.0276)
                 .destinationLocation("판교역").destinationLat(37.3943).destinationLng(127.1110)
-                .departureTime(LocalDateTime.now().plusDays(7))
+                .departureTime(LocalDateTime.now().plusHours(6))
                 .maxPassengers(3)
                 .description("테스트")
                 .autoAccept(false)
