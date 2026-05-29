@@ -50,6 +50,7 @@ public class RideService {
     private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
     private final CarpoolMetrics carpoolMetrics;
+    private final com.techeer.carpool.domain.member.repository.MemberRepository memberRepository;
 
     @Transactional
     public RideResponse createRide(RideCreateRequest request, Long driverId) {
@@ -195,8 +196,14 @@ public class RideService {
 
     public List<PassengerResponse> getPassengers(Long rideId) {
         Ride ride = findRideById(rideId);
+        List<Long> ids = ride.getPassengers().stream()
+                .map(RidePassenger::getPassengerId).collect(Collectors.toList());
+        Map<Long, String> nicknameMap = memberRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(
+                        com.techeer.carpool.domain.member.entity.Member::getId,
+                        com.techeer.carpool.domain.member.entity.Member::getNickname));
         return ride.getPassengers().stream()
-                .map(PassengerResponse::from)
+                .map(p -> PassengerResponse.from(p, nicknameMap.getOrDefault(p.getPassengerId(), "승객")))
                 .collect(Collectors.toList());
     }
 
