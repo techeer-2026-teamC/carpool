@@ -46,6 +46,9 @@ public class AuthController {
     @Value("${jwt.cookie-secure}")
     private boolean cookieSecure;
 
+    @Value("${jwt.cookie-samesite:Strict}")
+    private String cookieSameSite;
+
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<Void>> signup(@Valid @RequestBody SignupRequest request) {
         memberSignupService.signup(request);
@@ -89,7 +92,7 @@ public class AuthController {
         ResponseCookie deleteCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
                 .maxAge(0)
                 .httpOnly(true)
-                .sameSite("Strict")
+                .sameSite(cookieSameSite)
                 .path("/api/v1/auth")
                 .secure(cookieSecure)
                 .build();
@@ -109,7 +112,7 @@ public class AuthController {
     private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, refreshToken)
                 .httpOnly(true)
-                .sameSite("Strict")
+                .sameSite(cookieSameSite)
                 .secure(cookieSecure)
                 .path("/api/v1/auth")
                 .maxAge(jwtTokenProvider.getRefreshTokenExpirationSeconds())
