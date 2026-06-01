@@ -94,3 +94,5 @@ jobs:
           echo "SPRING_PROFILES_ACTIVE=prod" >> .env
           docker compose -f docker-compose.prod.yml pull app
           docker compose -f docker-compose.prod.yml up -d --no-build
+          # app은 새 이미지로 확실히 교체 (옛 컨테이너 재사용 방지)
+          docker compose -f docker-compose.prod.yml up -d --no-build --force-recreate --no-deps app
