@@ -1,0 +1,26 @@
+# =============================================
+# 프로덕션(EC2 배포) 프로파일
+# 활성화: SPRING_PROFILES_ACTIVE=prod
+# 환경변수는 docker compose .env 에서 주입됩니다.
+# =============================================
+server:
+  tomcat:
+    threads:
+      max: 400
+
+spring:
+  main:
+    lazy-initialization: true
+  datasource:
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 5
+      connection-timeout: 10000
+  jpa:
+    hibernate:
+      ddl-auto: validate   # 운영 안전: 스키마 변경 금지(검증만). update는 데이터 손실 위험
+    show-sql: false
+
+jwt:
+  cookie-secure: true      # HTTPS 전제 (nginx + Let's Encrypt)
+  cookie-samesite: None    # Vercel(프론트) ↔ EC2(백엔드) cross-site 쿠키 전송 허용

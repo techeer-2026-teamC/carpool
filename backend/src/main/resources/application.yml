@@ -24,6 +24,7 @@ jwt:
   access-token-expiration: 900000      # 15분
   refresh-token-expiration: 604800000  # 7일
   cookie-secure: true
+  cookie-samesite: Strict              # 기본 same-origin 환경용. prod(cross-site)에서는 None 으로 override
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
