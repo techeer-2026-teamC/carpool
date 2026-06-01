@@ -18,7 +18,7 @@ spring:
       connection-timeout: 10000
   jpa:
     hibernate:
-      ddl-auto: validate   # 운영 안전: 스키마 변경 금지(검증만). update는 데이터 손실 위험
+      ddl-auto: update     # 첫 배포 시 테이블 자동 생성 (빈 DB 대응). 스키마 안정화 후 validate 권장
     show-sql: false
 
 jwt:
