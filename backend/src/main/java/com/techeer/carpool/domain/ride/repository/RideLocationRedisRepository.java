@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class RideLocationRedisRepository {
 
     private static final String KEY_PREFIX = "ride:route:";
+    private static final String DRIVER_KEY_PREFIX = "ride:driver:";
     private static final Duration TTL = Duration.ofHours(24);
 
     private final StringRedisTemplate stringRedisTemplate;
@@ -59,8 +60,26 @@ public class RideLocationRedisRepository {
         stringRedisTemplate.delete(key(rideId));
     }
 
+    // 위치 hot path 검증용 rideId -> driverId 캐시 (운행 중 불변값이라 메시지마다 DB 조회 대신 사용)
+    public void cacheDriver(Long rideId, Long driverId) {
+        stringRedisTemplate.opsForValue().set(driverKey(rideId), String.valueOf(driverId), TTL);
+    }
+
+    public Long getCachedDriver(Long rideId) {
+        String value = stringRedisTemplate.opsForValue().get(driverKey(rideId));
+        return value == null ? null : Long.valueOf(value);
+    }
+
+    public void evictDriver(Long rideId) {
+        stringRedisTemplate.delete(driverKey(rideId));
+    }
+
     private String key(Long rideId) {
         return KEY_PREFIX + rideId;
+    }
+
+    private String driverKey(Long rideId) {
+        return DRIVER_KEY_PREFIX + rideId;
     }
 
     private String serialize(RideLocationEntry entry) {

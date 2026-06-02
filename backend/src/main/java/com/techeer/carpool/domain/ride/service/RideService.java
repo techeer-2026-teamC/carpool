@@ -28,6 +28,7 @@ import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.metrics.CarpoolMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -96,6 +97,8 @@ public class RideService {
         validateDriver(ride, requesterId);
         ride.start();
         carpoolMetrics.incrementRideStarted();
+        // 위치 hot path 검증용 driverId 캐시 적재 (메시지마다 DB 조회 제거)
+        rideLocationRedisRepository.cacheDriver(rideId, ride.getDriverId());
 
         List<Long> passengerIds = ride.getPassengers().stream()
                 .map(RidePassenger::getPassengerId)
@@ -133,6 +136,7 @@ public class RideService {
             @Override
             public void afterCommit() {
                 rideLocationRedisRepository.delete(rideId);
+                rideLocationRedisRepository.evictDriver(rideId);
             }
         });
 
@@ -152,10 +156,19 @@ public class RideService {
         return RideResponse.from(ride, post);
     }
 
+    // 위치 전송은 초당 수천 건 호출되는 hot path. 메시지마다 트랜잭션/커넥션을 점유하지 않도록
+    // SUPPORTS로 두고(없으면 트랜잭션 미생성), 드라이버 검증은 Redis 캐시로 처리해 DB 조회를 제거한다.
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void updateLocationDirect(Long rideId, Double latitude, Double longitude, Long requesterId) {
-        Ride ride = rideRepository.findById(rideId).orElse(null);
-        if (ride == null || !ride.getDriverId().equals(requesterId)) return;
-        if (ride.getStatus() == RideStatus.COMPLETED) return;
+        Long driverId = rideLocationRedisRepository.getCachedDriver(rideId);
+        if (driverId == null) {
+            // 캐시 미스(운행 시작 전 적재 누락/캐시 만료 등): DB fallback 후 재적재
+            Ride ride = rideRepository.findById(rideId).orElse(null);
+            if (ride == null || ride.getStatus() == RideStatus.COMPLETED) return;
+            driverId = ride.getDriverId();
+            rideLocationRedisRepository.cacheDriver(rideId, driverId);
+        }
+        if (!driverId.equals(requesterId)) return;
         // DB 직접 저장 대신 Redis List에 append (Write-Behind)
         rideLocationRedisRepository.push(rideId, latitude, longitude);
         carpoolMetrics.incrementLocationUpdated();
