@@ -30,3 +30,7 @@ replay_pid*
 postgres_data/
 # k6 성능 비교 결과 파일
 k6/results/
+
+# IDE / 로컬 도구
+.idea/
+.claude/
