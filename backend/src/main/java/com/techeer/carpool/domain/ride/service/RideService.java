@@ -156,21 +156,13 @@ public class RideService {
         return RideResponse.from(ride, post);
     }
 
-    // 위치 전송은 초당 수천 건 호출되는 hot path. 메시지마다 트랜잭션/커넥션을 점유하지 않도록
-    // SUPPORTS로 두고(없으면 트랜잭션 미생성), 드라이버 검증은 Redis 캐시로 처리해 DB 조회를 제거한다.
-    @Transactional(propagation = Propagation.SUPPORTS)
+    // [1단계] 위치마다 DB에 직접 INSERT + 인가도 DB SELECT (DB 2회/메시지) — 최적화 전 베이스라인
+    @Transactional
     public void updateLocationDirect(Long rideId, Double latitude, Double longitude, Long requesterId) {
-        Long driverId = rideLocationRedisRepository.getCachedDriver(rideId);
-        if (driverId == null) {
-            // 캐시 미스(운행 시작 전 적재 누락/캐시 만료 등): DB fallback 후 재적재
-            Ride ride = rideRepository.findById(rideId).orElse(null);
-            if (ride == null || ride.getStatus() == RideStatus.COMPLETED) return;
-            driverId = ride.getDriverId();
-            rideLocationRedisRepository.cacheDriver(rideId, driverId);
-        }
-        if (!driverId.equals(requesterId)) return;
-        // DB 직접 저장 대신 Redis List에 append (Write-Behind)
-        rideLocationRedisRepository.push(rideId, latitude, longitude);
+        Ride ride = rideRepository.findById(rideId).orElse(null);   // 인가: DB SELECT
+        if (ride == null || !ride.getDriverId().equals(requesterId)) return;
+        if (ride.getStatus() == RideStatus.COMPLETED) return;
+        rideLocationRepository.save(RideLocation.of(rideId, latitude, longitude, java.time.LocalDateTime.now()));  // 위치: DB INSERT
         carpoolMetrics.incrementLocationUpdated();
     }
 
