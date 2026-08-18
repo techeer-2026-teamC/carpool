@@ -34,3 +34,4 @@ k6/results/
 # IDE / 로컬 도구
 .idea/
 .claude/
+.omc/
