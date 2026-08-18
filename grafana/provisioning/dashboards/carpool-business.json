@@ -246,6 +246,75 @@
       ],
       "title": "Redis 응답시간 p95",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "pending(대기 스레드)" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "max(=30)" },
+            "properties": [{ "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "hikaricp_connections_pending{application=\"carpool\"}",
+          "legendFormat": "pending(대기 스레드)",
+          "refId": "A"
+        },
+        {
+          "expr": "hikaricp_connections_active{application=\"carpool\"}",
+          "legendFormat": "active",
+          "refId": "B"
+        },
+        {
+          "expr": "hikaricp_connections_max{application=\"carpool\"}",
+          "legendFormat": "max(=30)",
+          "refId": "C"
+        }
+      ],
+      "title": "HikariCP 대기 스레드 (pending) — 커넥션 풀 포화 지표",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "획득 타임아웃/초" },
+            "properties": [
+              { "id": "unit", "value": "ops" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 31 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"carpool\"}[1m]) / clamp_min(rate(hikaricp_connections_acquire_seconds_count{application=\"carpool\"}[1m]), 0.001)",
+          "legendFormat": "커넥션 획득 평균 대기",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(hikaricp_connections_timeout_total{application=\"carpool\"}[1m])",
+          "legendFormat": "획득 타임아웃/초",
+          "refId": "B"
+        }
+      ],
+      "title": "HikariCP 커넥션 획득 대기 & 타임아웃",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",
