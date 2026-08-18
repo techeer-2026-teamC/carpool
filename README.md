@@ -19,7 +19,9 @@
 
 <br>
 
-[백엔드 (현재 저장소)](https://github.com/techeer-2026-teamC/carpool) · [프론트엔드](https://github.com/techeer-2026-teamC/carpool-front) · [기술 블로그](#-기술적-도전)
+[기술적 도전](#-기술적-도전) · [아키텍처](#-아키텍처) · [빠른 시작](#-빠른-시작) · [배포](#-배포)
+
+`backend/` Spring Boot · `frontend/` React + Vite — **한 저장소에서 함께 관리합니다.**
 
 </div>
 
@@ -28,6 +30,7 @@
 ## 📖 목차
 
 - [무엇을 만들었나](#-무엇을-만들었나)
+- [저장소 구조](#-저장소-구조)
 - [기술적 도전](#-기술적-도전) — **이 프로젝트의 핵심**
 - [아키텍처](#-아키텍처)
 - [ERD](#-erd)
@@ -55,6 +58,28 @@
 | 목록을 끊임없이 조회한다 | **read-heavy 조회 성능** — 데이터가 쌓일수록 느려진다 |
 
 그래서 기능을 붙이는 데서 멈추지 않고, **셋 다 부하 테스트로 병목을 규명하고 수치로 검증**했습니다. 아래가 그 기록입니다.
+
+---
+
+## 📁 저장소 구조
+
+프론트엔드와 백엔드를 한 저장소에서 관리합니다.
+
+```
+carpool/
+├── backend/        Spring Boot 4.0.4 · Java 17        → REST · WebSocket(STOMP) · SSE
+├── frontend/       React 18 + Vite 5                  → 지도 탐색 · 실시간 운행 화면
+├── k6/             부하 테스트 시나리오 01~09
+├── grafana/        모니터링 대시보드 프로비저닝
+├── deploy/         EC2 셋업 스크립트 · 배포 런북
+├── nginx/          리버스 프록시 · TLS
+└── docs/           기술 블로그 · README 에셋
+```
+
+| | 기술 | 배포 |
+|---|---|---|
+| **backend/** | Java 17 · Spring Boot 4.0.4 · PostgreSQL · Redis | AWS EC2 (Docker Compose + nginx) |
+| **frontend/** | React 18 · Vite 5 · Kakao Map SDK · STOMP | Vercel |
 
 ---
 
@@ -375,6 +400,7 @@ erDiagram
 | **Infra** | Docker Compose · nginx · AWS EC2 · GitHub Actions |
 | **Monitoring** | Prometheus · Grafana (JVM · 비즈니스 · k6 대시보드) |
 | **Load Test** | k6 |
+| **Frontend** | React 18 · Vite 5 · React Router · Kakao Map SDK · Leaflet · `@stomp/stompjs` |
 
 ---
 
@@ -411,6 +437,19 @@ docker compose --profile monitoring up -d       # + Prometheus · Grafana
 > **로컬 프로파일**에서는 테스트 계정이 자동 생성됩니다.
 > 드라이버 `test@carpool.com` / `password1234` · 승객 `admin@carpool.com` / `admin1234!`
 
+### 3. 프론트엔드
+
+```bash
+cd frontend
+cp .env.example .env      # 카카오 지도 키 입력
+npm install
+npm run dev               # http://localhost:5173 (Vite proxy → localhost:8080)
+```
+
+> 백엔드 없이 UI만 돌려보려면 `npm run mock` — Vite 개발 서버가 실제 백엔드 DTO 형태 그대로 API를 흉내 냅니다.
+>
+> 실시간 운행 화면은 브라우저 콘솔에서 `localStorage.setItem('rideTestMode','1')` 후 새로고침하면 GPS 대신 시나리오 좌표를 사용합니다.
+
 <details>
 <summary><b>📂 프로젝트 구조</b></summary>
 
@@ -429,6 +468,11 @@ carpool/
 │       │   ├── review/               #   리뷰 · 평점
 │       │   └── notification/         #   알림 (Redis Pub/Sub + SSE)
 │       └── global/                   # config · jwt · exception · metrics · common
+├── frontend/                         # React + Vite 애플리케이션
+│   ├── src/api/                      #   백엔드 REST 클라이언트 (401 → refresh 자동 재시도)
+│   ├── src/components/               #   목록 · 지도 · 상세 · 운행 · 프로필 화면
+│   ├── src/hooks/                    #   useCarpool 등
+│   └── vite.mocks.js                 #   백엔드 없이 도는 mock API 플러그인
 ├── k6/                               # 부하 테스트
 │   ├── scenarios/                    #   01~09 시나리오
 │   └── utils/                        #   auth · data · checks 헬퍼
@@ -530,7 +574,7 @@ flowchart LR
 | **브랜치** | `main` = 배포 · `develop` = 개발 |
 | **CI** | GitHub Actions — `main` push / `main`·`develop` PR에서 Gradle 빌드 + 테스트 (Redis 서비스 컨테이너) |
 | **백엔드** | AWS EC2(t3.micro, ap-northeast-2) · Docker Compose · nginx 리버스 프록시 · Let's Encrypt TLS · DuckDNS |
-| **프론트** | Vercel (`VITE_API_BASE`로 백엔드 도메인 지정) |
+| **프론트** | Vercel (`VITE_API_BASE`·`VITE_WS_BASE`로 백엔드 도메인 지정 — 값은 Vercel 대시보드 환경변수로 관리) |
 | **보안 그룹** | 22 / 80 / 443만 오픈 — 5432 · 6379 · 8080 비공개 |
 
 📄 전체 절차는 [`deploy/RUNBOOK.md`](deploy/RUNBOOK.md)에 단계별로 정리돼 있습니다.
