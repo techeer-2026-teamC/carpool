@@ -32,3 +32,6 @@ PROJECT_OVERVIEW.md
 # OS
 .DS_Store
 Thumbs.db
+
+# 환경변수 (Vercel 대시보드에서 주입)
+.env.production
