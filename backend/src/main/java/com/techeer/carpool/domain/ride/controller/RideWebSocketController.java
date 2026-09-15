@@ -15,6 +15,7 @@ import java.security.Principal;
 import java.time.LocalDateTime;
 
 @Controller
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.legacy-ride.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class RideWebSocketController {
 

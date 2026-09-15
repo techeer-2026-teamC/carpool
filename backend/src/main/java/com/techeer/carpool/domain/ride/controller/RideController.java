@@ -15,6 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/rides")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.legacy-ride.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class RideController {
 

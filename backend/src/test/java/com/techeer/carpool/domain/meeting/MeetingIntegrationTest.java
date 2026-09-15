@@ -75,12 +75,13 @@ class MeetingIntegrationTest {
     @EntityScan(basePackageClasses = {Post.class, Member.class, Application.class, Notification.class})
     @EnableJpaRepositories(basePackageClasses = {PostRepository.class, MemberRepository.class,
             ApplicationRepository.class, NotificationRepository.class})
-    @Import({MeetingService.class, ApplicationStatusService.class, CarpoolMetrics.class})
+    @Import({MeetingService.class, MeetingLocations.class, ApplicationStatusService.class, CarpoolMetrics.class})
     static class Config {
         @Bean ObjectMapper objectMapper() { return new ObjectMapper(); }
         @Bean MeterRegistry meters() { return new SimpleMeterRegistry(); }
     }
     @Autowired MeetingService meetings;
+    @Autowired MeetingLocations locations;
     @org.springframework.test.context.bean.override.mockito.MockitoBean NotificationService notifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher publisher;
     @Autowired ApplicationStatusService applicationStatus;
@@ -143,12 +144,58 @@ class MeetingIntegrationTest {
         assertThat(completed.completedAt()).isNotNull();
     }
 
-    @Test void cancelledParticipantLosesAccessAndAttendance() {
+    @Test void coordinatesAreExplicitEphemeralAndLimitedToHostAndSelf() {
+        assertThat(locations.get(postId, host)).isEmpty();
+        assertError(() -> locations.update(postId, outsider, 37.5, 127.0), ErrorCode.MEETING_FORBIDDEN);
+        locations.update(postId, host, 37.5, 127.0);
+        locations.update(postId, first, 37.51, 127.01);
+        locations.update(postId, second, 37.52, 127.02);
+        assertThat(locations.get(postId, host)).extracting(MeetingLocations.Position::memberId)
+                .containsExactlyInAnyOrder(host, first, second);
+        assertThat(locations.get(postId, first)).extracting(MeetingLocations.Position::memberId)
+                .containsExactlyInAnyOrder(host, first);
+        String firstKey = "moa:meeting:"+postId+":member:"+first;
+        assertThat(strings.getExpire(firstKey, TimeUnit.SECONDS)).isBetween(55L,60L);
+        locations.stop(postId, first);
+        assertThat(locations.get(postId, first)).extracting(MeetingLocations.Position::memberId).containsExactly(host);
+        String secondKey = "moa:meeting:"+postId+":member:"+second;
+        strings.expire(secondKey, Duration.ofMillis(20));
+        await().atMost(2,TimeUnit.SECONDS).untilAsserted(() ->
+                assertThat(locations.get(postId, host)).extracting(MeetingLocations.Position::memberId).containsExactly(host));
+    }
+
+    @Test void cancelledParticipantLosesLocationAccessAndAttendance() {
         meetings.mark(postId, first, "MET", host);
+        locations.update(postId, first, 37.5, 127.0);
         applicationStatus.cancel(firstApplication, first);
         assertError(() -> meetings.get(postId, first), ErrorCode.MEETING_FORBIDDEN);
+        assertError(() -> locations.get(postId, first), ErrorCode.MEETING_FORBIDDEN);
+        assertThat(locations.get(postId, host)).isEmpty();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM meeting_attendance WHERE post_id=? AND member_id=?",
                 Long.class,postId,first)).isZero();
+    }
+
+    @Test void delayedPositionIsNotRepublishedAfterStopReplacementOrExpiry() throws Exception {
+        var json = new ObjectMapper();
+        var messages = org.mockito.Mockito.mock(org.springframework.messaging.simp.SimpMessagingTemplate.class);
+        var fanout = new MeetingSocket.Fanout(json, meetings, messages, locations);
+        locations.update(postId, first, 37.5, 127.0);
+        var position = locations.get(postId, first).get(0);
+        byte[] payload = json.writeValueAsBytes(position);
+        var message = new org.springframework.data.redis.connection.DefaultMessage(MeetingLocations.CHANNEL.getBytes(), payload);
+        fanout.onMessage(message, null);
+        org.mockito.Mockito.verify(messages).convertAndSend("/topic/meetings/"+postId+"/members/"+host, position);
+        org.mockito.Mockito.clearInvocations(messages);
+        locations.stop(postId, first);
+        fanout.onMessage(message, null);
+        String key = "moa:meeting:"+postId+":member:"+first;
+        var newer = new MeetingLocations.Position(postId, first, 37.51, 127.01, java.time.Instant.now().toString());
+        strings.opsForValue().set(key, json.writeValueAsString(newer), Duration.ofSeconds(60));
+        fanout.onMessage(message, null);
+        strings.opsForValue().set(key, new String(payload, java.nio.charset.StandardCharsets.UTF_8), Duration.ofMillis(20));
+        await().atMost(2,TimeUnit.SECONDS).until(() -> !Boolean.TRUE.equals(strings.hasKey(key)));
+        fanout.onMessage(message, null);
+        org.mockito.Mockito.verifyNoInteractions(messages);
     }
 
     private void assertError(Runnable action, ErrorCode code) {
