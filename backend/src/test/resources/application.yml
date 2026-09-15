@@ -1,6 +1,8 @@
 spring:
+  flyway:
+    enabled: false
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
+    url: jdbc:h2:mem:${random.uuid};MODE=PostgreSQL;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -11,7 +13,7 @@ spring:
   data:
     redis:
       host: localhost
-      port: 6379
+      port: ${REDIS_PORT:6379}
 
 jwt:
   secret: test-secret-key-for-unit-testing-purposes-only!!
@@ -26,3 +28,8 @@ management:
   health:
     redis:
       enabled: false
+
+app:
+  role: api
+  legacy-ride:
+    enabled: true

@@ -1,10 +1,16 @@
 name: Java CI with Gradle
 
 on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy the reviewed main revision to EC2'
+        type: boolean
+        required: true
+        default: false
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main", "develop" ]
 
 jobs:
   build:
@@ -62,7 +68,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy
 
     steps:
     - uses: actions/checkout@v4
