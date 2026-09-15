@@ -25,16 +25,28 @@ public class JwtClaimsCacheRepository {
 
     public void save(String token, Long memberId, long ttlSeconds) {
         if (ttlSeconds <= 0) return;
-        redisTemplate.opsForValue().set(PREFIX + hash(token), memberId.toString(), ttlSeconds, TimeUnit.SECONDS);
+        try {
+            redisTemplate.opsForValue().set(PREFIX + hash(token), memberId.toString(), ttlSeconds, TimeUnit.SECONDS);
+        } catch (org.springframework.dao.DataAccessException ignored) {
+            // Optional cache. A miss must fall back to signature verification.
+        }
     }
 
     public Optional<Long> findMemberId(String token) {
-        String value = redisTemplate.opsForValue().get(PREFIX + hash(token));
-        return Optional.ofNullable(value).map(Long::parseLong);
+        try {
+            String value = redisTemplate.opsForValue().get(PREFIX + hash(token));
+            return Optional.ofNullable(value).map(Long::parseLong);
+        } catch (org.springframework.dao.DataAccessException | NumberFormatException ignored) {
+            return Optional.empty();
+        }
     }
 
     public void delete(String token) {
-        redisTemplate.delete(PREFIX + hash(token));
+        try {
+            redisTemplate.delete(PREFIX + hash(token));
+        } catch (org.springframework.dao.DataAccessException ignored) {
+            // Revocation is enforced independently by the mandatory blacklist check.
+        }
     }
 
     private String hash(String input) {

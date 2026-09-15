@@ -33,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (StringUtils.hasText(token)) {
             try {
-                if (isBlacklisted(token)) {
+                if (blacklistRedisRepository.isBlacklisted(token)) {
                     filterChain.doFilter(request, response);
                     return;
                 }
@@ -50,6 +50,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(memberId, null, List.of());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (org.springframework.dao.DataAccessException e) {
+                SecurityContextHolder.clearContext();
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Authentication temporarily unavailable");
+                return;
             } catch (ExpiredJwtException e) {
                 request.setAttribute("tokenError", "AUTH_005");
             } catch (JwtException | IllegalArgumentException e) {
@@ -58,15 +62,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private boolean isBlacklisted(String token) {
-        try {
-            return blacklistRedisRepository.isBlacklisted(token);
-        } catch (Exception e) {
-            log.error("Redis 블랙리스트 조회 실패 — 로그아웃된 토큰이 허용될 수 있음: {}", e.getMessage());
-            return false;
-        }
     }
 
     public String resolveToken(HttpServletRequest request) {
