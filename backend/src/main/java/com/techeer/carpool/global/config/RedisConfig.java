@@ -9,7 +9,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
+import java.nio.charset.StandardCharsets;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
@@ -45,7 +45,8 @@ public class RedisConfig {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(factory);
         container.addMessageListener(
-                new MessageListenerAdapter(subscriber, "onMessage"),
+                (message, pattern) -> subscriber.onMessage(new String(message.getBody(), StandardCharsets.UTF_8),
+                        new String(message.getChannel(), StandardCharsets.UTF_8)),
                 new PatternTopic("notification:*")
         );
         return container;
