@@ -61,7 +61,7 @@ public class Notification {
                 .type(NotificationType.APPLICATION_RECEIVED)
                 .receiverId(receiverId)
                 .referenceId(postId)
-                .message("카풀 신청이 도착했습니다.")
+                .message("참여 신청이 도착했습니다.")
                 .build();
     }
 
@@ -70,7 +70,7 @@ public class Notification {
                 .type(NotificationType.APPLICATION_ACCEPTED)
                 .receiverId(receiverId)
                 .referenceId(postId)
-                .message("카풀 신청이 승인되었습니다.")
+                .message("참여 신청이 승인되었습니다.")
                 .build();
     }
 
@@ -79,7 +79,7 @@ public class Notification {
                 .type(NotificationType.APPLICATION_REJECTED)
                 .receiverId(receiverId)
                 .referenceId(postId)
-                .message("카풀 신청이 거절되었습니다.")
+                .message("참여 신청이 거절되었습니다.")
                 .build();
     }
 
@@ -106,7 +106,7 @@ public class Notification {
                 .type(NotificationType.POST_CANCELLED)
                 .receiverId(receiverId)
                 .referenceId(postId)
-                .message("신청한 카풀 게시글이 취소되었습니다.")
+                .message("신청한 모집글이 취소되었습니다.")
                 .build();
     }
 
