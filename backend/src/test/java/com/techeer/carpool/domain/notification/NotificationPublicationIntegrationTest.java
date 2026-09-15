@@ -7,6 +7,7 @@ import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublis
 import com.techeer.carpool.domain.notification.subscriber.RedisNotificationSubscriber;
 import com.techeer.carpool.global.config.RedisConfig;
 import org.junit.jupiter.api.Test;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.testcontainers.containers.GenericContainer;
@@ -25,7 +26,11 @@ class NotificationPublicationIntegrationTest {
         connection.afterPropertiesSet(); connection.start();
         var registry = mock(SseEmitterRegistry.class);
         var json = new ObjectMapper();
-        var listener = new RedisConfig().listenerContainer(connection, new RedisNotificationSubscriber(registry, json));
+        var config = new RedisConfig();
+        var meters = new SimpleMeterRegistry();
+        var messages = config.redisPubSubMessageExecutor(meters, 2, 8);
+        var subscriptions = config.redisPubSubSubscriptionExecutor();
+        var listener = config.listenerContainer(connection, new RedisNotificationSubscriber(registry, json), messages, subscriptions);
         listener.afterPropertiesSet(); listener.start();
         try {
             var publisher = new RedisNotificationPublisher(new StringRedisTemplate(connection));
@@ -34,6 +39,9 @@ class NotificationPublicationIntegrationTest {
             publisher.publishSerialized(99L, json.writeValueAsString(payload));
             await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> verify(registry).send(eq(99L),
                     argThat(received -> received.getNotificationId().equals(5L))));
-        } finally { listener.destroy(); connection.destroy(); }
+        } finally {
+            listener.destroy(); messages.shutdownNow(); subscriptions.shutdownNow();
+            connection.destroy(); meters.close();
+        }
     }
 }
