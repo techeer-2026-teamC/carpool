@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM eclipse-temurin:17-jdk-alpine AS builder
+FROM eclipse-temurin:17-jdk-jammy AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY src src
 RUN ./gradlew bootJar --no-daemon -x test
 
 # ---- Runtime Stage ----
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
 
