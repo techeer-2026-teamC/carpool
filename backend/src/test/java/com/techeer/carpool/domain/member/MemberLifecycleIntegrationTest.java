@@ -131,6 +131,31 @@ class MemberLifecycleIntegrationTest {
         assertThat(members.findById(host).orElseThrow().isDeleted()).isFalse();
     }
 
+    @Test void withdrawnRejectedMemberCannotBeRestoredToPending() {
+        decisions.reject(applicationId,host);
+        withdrawal.withdraw(applicant,null);
+        assertError(() -> decisions.cancelReject(applicationId,host),ErrorCode.MEMBER_NOT_FOUND);
+        assertThat(applications.findById(applicationId).orElseThrow().getStatus()).isEqualTo(ApplicationStatus.REJECTED);
+        assertThat(posts.findById(postId).orElseThrow().getCurrentPassengers()).isZero();
+    }
+
+    @Test void withdrawalWinningMemberLockPreventsConcurrentRejectionUndo() throws Exception {
+        decisions.reject(applicationId,host);
+        raceWithHeldTransaction(() -> withdrawal.withdraw(applicant,null),
+                () -> assertError(() -> decisions.cancelReject(applicationId,host),ErrorCode.MEMBER_NOT_FOUND));
+        assertThat(members.findById(applicant).orElseThrow().isDeleted()).isTrue();
+        assertThat(applications.findById(applicationId).orElseThrow().getStatus()).isEqualTo(ApplicationStatus.REJECTED);
+    }
+
+    @Test void rejectionUndoWinningMemberLockLetsWithdrawalCancelRestoredRequest() throws Exception {
+        decisions.reject(applicationId,host);
+        raceWithHeldTransaction(() -> decisions.cancelReject(applicationId,host),
+                () -> withdrawal.withdraw(applicant,null));
+        assertThat(members.findById(applicant).orElseThrow().isDeleted()).isTrue();
+        assertThat(applications.findById(applicationId).orElseThrow().getStatus()).isEqualTo(ApplicationStatus.CANCELLED);
+        assertThat(posts.findById(postId).orElseThrow().getCurrentPassengers()).isZero();
+    }
+
     private void raceWithHeldTransaction(Runnable winner, Runnable blocked) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         CountDownLatch held = new CountDownLatch(1), release = new CountDownLatch(1);
