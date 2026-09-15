@@ -1,9 +1,9 @@
 spring:
   main:
-    lazy-initialization: true
+    lazy-initialization: false
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
 jwt:
   secret: local-dev-secret-key-for-testing-only-32chars!!

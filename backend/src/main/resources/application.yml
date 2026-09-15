@@ -2,7 +2,7 @@ spring:
   profiles:
     active: local
   application:
-    name: carpool
+    name: moa
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/carpool}
@@ -11,13 +11,15 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update # 엔티티 변경 시 DB 테이블 자동 업데이트
-    show-sql: true     # 실행되는 SQL을 콘솔에 출력
+      ddl-auto: validate
+    show-sql: false
 
   data:
     redis:
       host: ${REDIS_HOST:localhost}
-      port: 6379
+      port: ${REDIS_PORT:6379}
+      timeout: 1s
+      connect-timeout: 1s
 
 jwt:
   secret: ${JWT_SECRET}
@@ -30,6 +32,8 @@ cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 
 management:
+  server:
+    port: ${MANAGEMENT_PORT:9091}
   endpoints:
     web:
       exposure:
@@ -41,6 +45,7 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+      role: ${app.role}
     distribution:
       percentiles-histogram:
         "[http.server.requests]": true
@@ -49,3 +54,8 @@ management:
       slo:
         "[http.server.requests]": 100ms, 200ms, 500ms, 1s
 
+
+app:
+  role: ${APP_ROLE:api}
+  legacy-ride:
+    enabled: false
