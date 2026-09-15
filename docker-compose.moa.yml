@@ -46,7 +46,10 @@ services:
       POSTGRES_USER: moa
       POSTGRES_PASSWORD: moa-local-only
     ports: ["127.0.0.1:15432:5432"]
-    volumes: ["moa_database:/var/lib/postgresql/data"]
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "track_io_timing=on", "-c", "timezone=Asia/Seoul"]
+    volumes:
+      - moa_database:/var/lib/postgresql/data
+      - ./deploy/moa/init.sql:/docker-entrypoint-initdb.d/01-observability.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U moa -d moa"]
       interval: 3s
@@ -62,6 +65,46 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+  postgres-exporter:
+    profiles: [monitoring]
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    environment:
+      DATA_SOURCE_NAME: postgresql://moa:moa-local-only@db:5432/moa?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+  redis-exporter:
+    profiles: [monitoring]
+    image: oliver006/redis_exporter:v1.67.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on: [redis]
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:v2.51.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-remote-write-receiver
+    ports: ["127.0.0.1:19090:9090"]
+    volumes:
+      - ./prometheus-moa.yml:/etc/prometheus/prometheus.yml:ro
+      - moa_prometheus:/prometheus
+  grafana:
+    profiles: [monitoring]
+    image: grafana/grafana:10.4.2
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: moa-local-only
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports: ["127.0.0.1:13000:3000"]
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - moa_grafana:/var/lib/grafana
+    depends_on: [prometheus]
+
 volumes:
   moa_database:
   moa_redis:
+  moa_prometheus:
+  moa_grafana:
