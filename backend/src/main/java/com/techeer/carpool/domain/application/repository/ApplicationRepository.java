@@ -16,6 +16,14 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     @Query("select a.postId from Application a where a.id = :id")
     Optional<Long> findPostIdById(@Param("id") Long id);
 
+    @Query("select a.applicantId from Application a where a.id = :id")
+    Optional<Long> findApplicantIdById(@Param("id") Long id);
+
+    @Query("select distinct a.postId from Application a, Post p where p.id = a.postId " +
+            "and a.applicantId = :memberId and a.status in ('PENDING','ACCEPTED') " +
+            "and p.deleted = false and p.meetingCompletedAt is null")
+    List<Long> findUnresolvedPostIds(Long memberId);
+
     Optional<Application> findByPostIdAndApplicantId(Long postId, Long applicantId);
 
     boolean existsByPostIdAndApplicantId(Long postId, Long applicantId);

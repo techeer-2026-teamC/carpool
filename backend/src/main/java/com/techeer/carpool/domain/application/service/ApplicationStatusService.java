@@ -32,6 +32,10 @@ public class ApplicationStatusService {
 
     @Transactional
     public ApplicationResponse accept(Long applicationId, Long requesterId) {
+        Long applicantId = applicationRepository.findApplicantIdById(applicationId)
+                .orElseThrow(() -> new CarpoolException(ErrorCode.APPLICATION_NOT_FOUND));
+        memberRepository.findActiveByIdWithLock(applicantId)
+                .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
         Post post = lockPost(applicationId);
         requireOwner(post, requesterId);
         Application application = findApplication(applicationId);

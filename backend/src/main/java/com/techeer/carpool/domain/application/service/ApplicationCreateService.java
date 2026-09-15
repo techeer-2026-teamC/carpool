@@ -31,6 +31,9 @@ public class ApplicationCreateService {
 
     @Transactional
     public ApplicationResponse apply(Long postId, Long applicantId) {
+        // Lifecycle mutations always lock the member before any recruitment row.
+        memberRepository.findActiveByIdWithLock(applicantId)
+                .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
         Post post = postRepository.findByIdAndDeletedFalseWithLock(postId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.POST_NOT_FOUND));
 
