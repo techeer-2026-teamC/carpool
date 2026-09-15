@@ -189,8 +189,8 @@ class MemberIntegrationTest {
     }
 
     @Test
-    @DisplayName("회원 탈퇴 시 게시글 소프트 삭제")
-    void withdraw_deletesPost() throws Exception {
+    @DisplayName("진행 중인 모집이 있으면 탈퇴 차단")
+    void withdraw_blocksActivePost() throws Exception {
         Post post = postRepository.save(Post.builder()
                 .memberId(memberId)
                 .title("카풀")
@@ -203,14 +203,14 @@ class MemberIntegrationTest {
 
         mockMvc.perform(delete("/api/v1/members/me")
                         .header("Authorization", token))
-                .andExpect(status().isOk());
+                .andExpect(status().isConflict());
 
-        assertThat(postRepository.findByIdAndDeletedFalse(post.getId())).isEmpty();
+        assertThat(postRepository.findByIdAndDeletedFalse(post.getId())).isPresent();
     }
 
     @Test
-    @DisplayName("회원 탈퇴 시 ACCEPTED 신청 REJECTED 처리")
-    void withdraw_rejectsAcceptedApplications() throws Exception {
+    @DisplayName("승인된 참여가 있으면 탈퇴 차단")
+    void withdraw_blocksAcceptedApplications() throws Exception {
         Post post = postRepository.save(Post.builder()
                 .memberId(otherMemberId)
                 .title("카풀")
@@ -230,10 +230,10 @@ class MemberIntegrationTest {
         // 탈퇴
         mockMvc.perform(delete("/api/v1/members/me")
                         .header("Authorization", token))
-                .andExpect(status().isOk());
+                .andExpect(status().isConflict());
 
-        // ACCEPTED 신청이 REJECTED 처리됐는지 확인
-        assertThat(applicationRepository.findByApplicantIdAndStatus(memberId, ApplicationStatus.ACCEPTED)).isEmpty();
-        assertThat(applicationRepository.findByApplicantIdAndStatus(memberId, ApplicationStatus.REJECTED)).hasSize(1);
+        // 탈퇴 차단 시 승인 상태와 정원을 보존한다
+        assertThat(applicationRepository.findByApplicantIdAndStatus(memberId, ApplicationStatus.ACCEPTED)).hasSize(1);
+        assertThat(applicationRepository.findByApplicantIdAndStatus(memberId, ApplicationStatus.REJECTED)).isEmpty();
     }
 }
