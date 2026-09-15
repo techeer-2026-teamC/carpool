@@ -165,7 +165,7 @@ public class Post extends SoftDeletableEntity {
     }
 
     public void completeMeeting(LocalDateTime at) {
-        if (meetingCompletedAt == null) meetingCompletedAt = at;
+        if (meetingCompletedAt == null) meetingCompletedAt = at.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         close();
     }
 
