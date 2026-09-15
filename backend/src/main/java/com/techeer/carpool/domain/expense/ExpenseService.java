@@ -9,6 +9,7 @@ import com.techeer.carpool.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +24,7 @@ public class ExpenseService {
     public record View(Long postId, Integer total, List<Share> shares) {}
     public record Audit(Long id, Long actorId, String action, String detail, LocalDateTime createdAt) {}
 
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public View get(Long postId, Long requester) {
         MeetingView meeting = meetings.get(postId,requester);
         Post post = meetings.find(postId);

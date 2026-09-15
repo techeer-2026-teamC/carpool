@@ -19,12 +19,14 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
@@ -33,7 +35,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @Testcontainers
 @SpringJUnitConfig(ExpenseIntegrationTest.Config.class)
@@ -65,7 +72,7 @@ class ExpenseIntegrationTest {
     @Autowired PostRepository posts;
     @Autowired ApplicationRepository applications;
     @Autowired PlatformTransactionManager transactions;
-    @Autowired JdbcTemplate jdbc;
+    @MockitoSpyBean JdbcTemplate jdbc;
     long host, first, second, noShow, outsider, postId;
 
     @BeforeEach void participants() {
@@ -99,6 +106,40 @@ class ExpenseIntegrationTest {
         assertThat(result.shares()).extracting(ExpenseService.Share::memberId).doesNotContain(noShow);
         assertThat(result.shares().stream().mapToInt(ExpenseService.Share::amount).sum()).isEqualTo(10001);
         assertThat(expenses.get(postId,first).total()).isEqualTo(10001);
+    }
+
+    @Test void concurrentTotalChangeCannotMixTotalAndSharesFromDifferentCommits() throws Exception {
+        finishMeeting();
+        expenses.setTotal(postId,10001,host);
+        var totalRead = new CountDownLatch(1);
+        var writerCommitted = new CountDownLatch(1);
+        var pauseNextRead = new AtomicBoolean(true);
+        // Keep the real SQL; pause only after the reader has fetched its total.
+        doAnswer(call -> {
+            Object result = call.callRealMethod();
+            if (pauseNextRead.compareAndSet(true,false)) {
+                totalRead.countDown();
+                assertThat(writerCommitted.await(10,TimeUnit.SECONDS)).isTrue();
+            }
+            return result;
+        }).when(jdbc).query(eq("SELECT total FROM expenses WHERE post_id=?"),any(RowMapper.class),eq(postId));
+        var executor = Executors.newSingleThreadExecutor();
+        try {
+            var reader = executor.submit(() -> expenses.get(postId,first));
+            assertThat(totalRead.await(10,TimeUnit.SECONDS)).isTrue();
+            expenses.setTotal(postId,9000,host);
+            writerCommitted.countDown();
+            var snapshot = reader.get(10,TimeUnit.SECONDS);
+            assertThat(snapshot.total()).isEqualTo(10001);
+            assertThat(snapshot.shares().stream().mapToInt(ExpenseService.Share::amount).sum()).isEqualTo(10001);
+            var current = expenses.get(postId,first);
+            assertThat(current.total()).isEqualTo(9000);
+            assertThat(current.shares().stream().mapToInt(ExpenseService.Share::amount).sum()).isEqualTo(9000);
+        } finally {
+            writerCommitted.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10,TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Test void collectionBlocksEditingUntilUndoAndEveryChangeIsAudited() {
