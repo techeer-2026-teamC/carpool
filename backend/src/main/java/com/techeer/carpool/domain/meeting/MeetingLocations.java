@@ -52,6 +52,13 @@ public class MeetingLocations {
         return result;
     }
 
+    public boolean isCurrent(Position position) {
+        String value = redis.opsForValue().get(key(position.postId(), position.memberId()));
+        if (value == null) return false;
+        try { return position.equals(json.readValue(value, Position.class)); }
+        catch (com.fasterxml.jackson.core.JsonProcessingException e) { return false; }
+    }
+
     public void stop(Long postId, Long requester) {
         meetings.get(postId, requester);
         redis.delete(key(postId, requester));

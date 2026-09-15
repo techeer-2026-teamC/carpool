@@ -30,7 +30,8 @@ class NotificationPublicationIntegrationTest {
         var meters = new SimpleMeterRegistry();
         var messages = config.redisPubSubMessageExecutor(meters, 2, 8);
         var subscriptions = config.redisPubSubSubscriptionExecutor();
-        var listener = config.listenerContainer(connection, new RedisNotificationSubscriber(registry, json), messages, subscriptions);
+        var listener = config.listenerContainer(connection, new RedisNotificationSubscriber(registry, json),
+                org.mockito.Mockito.mock(com.techeer.carpool.domain.meeting.MeetingSocket.Fanout.class), messages, subscriptions);
         listener.afterPropertiesSet(); listener.start();
         try {
             var publisher = new RedisNotificationPublisher(new StringRedisTemplate(connection));

@@ -43,9 +43,11 @@ class NotificationSseFanoutIntegrationTest extends NotificationDatabaseTestSuppo
         var secondApi = new RecordingRegistry();
         var json = new ObjectMapper();
         var firstListener = config.listenerContainer(connection,
-                new RedisNotificationSubscriber(firstApi, json), messages, subscriptions);
+                new RedisNotificationSubscriber(firstApi, json),
+                org.mockito.Mockito.mock(com.techeer.carpool.domain.meeting.MeetingSocket.Fanout.class), messages, subscriptions);
         var secondListener = config.listenerContainer(connection,
-                new RedisNotificationSubscriber(secondApi, json), messages, subscriptions);
+                new RedisNotificationSubscriber(secondApi, json),
+                org.mockito.Mockito.mock(com.techeer.carpool.domain.meeting.MeetingSocket.Fanout.class), messages, subscriptions);
         try {
             firstListener.afterPropertiesSet();
             secondListener.afterPropertiesSet();

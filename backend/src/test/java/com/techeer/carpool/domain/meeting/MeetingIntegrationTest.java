@@ -175,6 +175,29 @@ class MeetingIntegrationTest {
                 Long.class,postId,first)).isZero();
     }
 
+    @Test void delayedPositionIsNotRepublishedAfterStopReplacementOrExpiry() throws Exception {
+        var json = new ObjectMapper();
+        var messages = org.mockito.Mockito.mock(org.springframework.messaging.simp.SimpMessagingTemplate.class);
+        var fanout = new MeetingSocket.Fanout(json, meetings, messages, locations);
+        locations.update(postId, first, 37.5, 127.0);
+        var position = locations.get(postId, first).get(0);
+        byte[] payload = json.writeValueAsBytes(position);
+        var message = new org.springframework.data.redis.connection.DefaultMessage(MeetingLocations.CHANNEL.getBytes(), payload);
+        fanout.onMessage(message, null);
+        org.mockito.Mockito.verify(messages).convertAndSend("/topic/meetings/"+postId+"/members/"+host, position);
+        org.mockito.Mockito.clearInvocations(messages);
+        locations.stop(postId, first);
+        fanout.onMessage(message, null);
+        String key = "moa:meeting:"+postId+":member:"+first;
+        var newer = new MeetingLocations.Position(postId, first, 37.51, 127.01, java.time.Instant.now().toString());
+        strings.opsForValue().set(key, json.writeValueAsString(newer), Duration.ofSeconds(60));
+        fanout.onMessage(message, null);
+        strings.opsForValue().set(key, new String(payload, java.nio.charset.StandardCharsets.UTF_8), Duration.ofMillis(20));
+        await().atMost(2,TimeUnit.SECONDS).until(() -> !Boolean.TRUE.equals(strings.hasKey(key)));
+        fanout.onMessage(message, null);
+        org.mockito.Mockito.verifyNoInteractions(messages);
+    }
+
     private void assertError(Runnable action, ErrorCode code) {
         assertThatThrownBy(action::run).isInstanceOfSatisfying(CarpoolException.class,
                 error -> assertThat(error.getErrorCode()).isEqualTo(code));

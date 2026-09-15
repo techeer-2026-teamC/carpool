@@ -34,12 +34,13 @@ public class MeetingSocket {
         private final ObjectMapper json;
         private final MeetingService meetings;
         private final SimpMessagingTemplate messages;
+        private final MeetingLocations locations;
         @Override
         public void onMessage(org.springframework.data.redis.connection.Message message, byte[] pattern) {
             try {
                 MeetingLocations.Position p = json.readValue(new String(message.getBody(), StandardCharsets.UTF_8), MeetingLocations.Position.class);
                 MeetingView view = meetings.get(p.postId(), p.memberId());
-                if (!view.locationSharingAvailable()) return;
+                if (!view.locationSharingAvailable() || !locations.isCurrent(p)) return;
                 for (MeetingView.Participant recipient : view.participants()) {
                     if (p.memberId().equals(view.hostId()) || recipient.host() || recipient.memberId().equals(p.memberId()))
                         messages.convertAndSend("/topic/meetings/"+p.postId()+"/members/"+recipient.memberId(), p);
