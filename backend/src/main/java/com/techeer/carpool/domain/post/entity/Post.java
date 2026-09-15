@@ -203,7 +203,10 @@ public class Post extends SoftDeletableEntity {
         if (command.destinationLocation() != null) this.destinationLocation = command.destinationLocation();
         if (command.destinationLat() != null) this.destinationLat = command.destinationLat();
         if (command.destinationLng() != null) this.destinationLng = command.destinationLng();
-        if (command.departureTime() != null) this.departureTime = command.departureTime();
+        if (command.departureTime() != null && !command.departureTime().equals(this.departureTime)) {
+            this.departureTime = command.departureTime();
+            this.departureNotifiedAt = null;
+        }
         if (command.maxPassengers() > 0) this.maxPassengers = command.maxPassengers();
         if (command.description() != null) this.description = command.description();
         if (command.status() == PostStatus.CLOSED) close();

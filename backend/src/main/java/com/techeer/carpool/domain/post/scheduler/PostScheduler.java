@@ -2,81 +2,47 @@ package com.techeer.carpool.domain.post.scheduler;
 
 import com.techeer.carpool.domain.notification.entity.Notification;
 import com.techeer.carpool.domain.notification.service.NotificationService;
-import com.techeer.carpool.domain.post.entity.Post;
+import com.techeer.carpool.domain.post.entity.PostStatus;
 import com.techeer.carpool.domain.post.repository.PostRepository;
-import com.techeer.carpool.global.config.CacheConfig;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.CacheManager;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Duration;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "app.role", havingValue = "worker")
 public class PostScheduler {
-
-    private static final String DEPARTURE_NOTIF_KEY = "departure_notif:";
-    private static final int APPROACHING_MINUTES = 60;
-
     private final PostRepository postRepository;
     private final NotificationService notificationService;
-    private final StringRedisTemplate stringRedisTemplate;
-    private final CacheManager cacheManager;
+    private final PlatformTransactionManager transactionManager;
 
-    /**
-     * 출발 시간이 지난 OPEN 게시글을 1분마다 자동 마감.
-     */
-    @Scheduled(fixedDelay = 60_000)
-    @Transactional
+    @Scheduled(fixedDelayString = "${app.recruitment.close-interval-ms:1000}")
     public void autoCloseExpiredPosts() {
-        List<Post> expired = postRepository.findExpiredOpenPosts(LocalDateTime.now());
-        if (expired.isEmpty()) return;
-
-        expired.forEach(Post::close);
-        evictUpcomingCache();
-        log.info("자동 마감 완료: {}건", expired.size());
+        LocalDateTime now = LocalDateTime.now();
+        for (Long id : postRepository.findExpiredPostIds(now)) {
+            new TransactionTemplate(transactionManager).executeWithoutResult(tx ->
+                postRepository.findByIdAndDeletedFalseWithLock(id).ifPresent(post -> {
+                    if (post.getStatus() == PostStatus.OPEN && !post.getDepartureTime().isAfter(now)) post.close();
+                }));
+        }
     }
 
-    /**
-     * 출발 1시간 전 드라이버에게 알림을 5분마다 체크.
-     * Redis key로 중복 발송 방지.
-     */
-    @Scheduled(fixedDelay = 300_000)
-    @Transactional
+    @Scheduled(fixedDelayString = "${app.recruitment.reminder-interval-ms:10000}")
     public void notifyApproachingDeparture() {
-        LocalDateTime from = LocalDateTime.now().plusMinutes(APPROACHING_MINUTES - 5);
-        LocalDateTime to   = LocalDateTime.now().plusMinutes(APPROACHING_MINUTES + 5);
-
-        List<Post> approaching = postRepository.findApproachingOpenPosts(from, to);
-        List<Post> unnotified = approaching.stream()
-                .filter(p -> Boolean.FALSE.equals(
-                        stringRedisTemplate.hasKey(DEPARTURE_NOTIF_KEY + p.getId())))
-                .collect(Collectors.toList());
-
-        if (unnotified.isEmpty()) return;
-
-        notificationService.saveAll(unnotified.stream()
-                .map(p -> Notification.ofDepartureApproaching(p.getMemberId(), p.getId()))
-                .collect(Collectors.toList()));
-
-        unnotified.forEach(p -> {
-            stringRedisTemplate.opsForValue()
-                    .set(DEPARTURE_NOTIF_KEY + p.getId(), "1", Duration.ofHours(3));
-        });
-
-        log.info("출발 임박 알림 발송: {}건", unnotified.size());
-    }
-
-    private void evictUpcomingCache() {
-        var cache = cacheManager.getCache(CacheConfig.UPCOMING_POSTS);
-        if (cache != null) cache.clear();
+        LocalDateTime now = LocalDateTime.now();
+        for (Long id : postRepository.findApproachingPostIds(now, now.plusHours(1))) {
+            new TransactionTemplate(transactionManager).executeWithoutResult(tx ->
+                postRepository.findByIdAndDeletedFalseWithLock(id).ifPresent(post -> {
+                    if (post.getStatus() != PostStatus.CANCELLED && post.getDepartureNotifiedAt() == null && post.getDepartureTime().isAfter(now) && !post.getDepartureTime().isAfter(now.plusHours(1))
+                            && post.getMeetingCompletedAt() == null) {
+                        notificationService.save(Notification.ofDepartureApproaching(post.getMemberId(), id));
+                        post.markDepartureNotified(now);
+                    }
+                }));
+        }
     }
 }

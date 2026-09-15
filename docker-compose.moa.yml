@@ -1,5 +1,41 @@
 name: moa-local
+
+x-api: &api
+  build: ./backend
+  environment: &environment
+    SPRING_PROFILES_ACTIVE: docker
+    DB_URL: jdbc:postgresql://db:5432/moa
+    DB_USERNAME: moa
+    DB_PASSWORD: moa-local-only
+    REDIS_HOST: redis
+    JWT_SECRET: moa-local-development-only-secret-minimum-32-characters
+    CORS_ALLOWED_ORIGINS: http://localhost:5173
+    TZ: Asia/Seoul
+    JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -Duser.timezone=Asia/Seoul
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
 services:
+  api1:
+    <<: *api
+    ports: ["127.0.0.1:18081:8080"]
+  api2:
+    <<: *api
+    ports: ["127.0.0.1:18082:8080"]
+  worker:
+    <<: *api
+    environment:
+      <<: *environment
+      APP_ROLE: worker
+  gateway:
+    image: nginx:1.27-alpine
+    ports: ["127.0.0.1:18080:80"]
+    volumes: ["./nginx/moa.conf:/etc/nginx/conf.d/default.conf:ro"]
+    depends_on: [api1, api2]
   db:
     image: moa-postgis:15
     build:
