@@ -1,5 +1,9 @@
 package com.techeer.carpool.domain.application.service;
 
+import com.techeer.carpool.domain.notification.dto.NotificationPayload;
+import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
+import com.techeer.carpool.domain.notification.type.NotificationType;
+import java.util.Map;
 import com.techeer.carpool.domain.application.dto.ApplicationResponse;
 import com.techeer.carpool.domain.application.entity.Application;
 import com.techeer.carpool.domain.application.entity.ApplicationStatus;
@@ -27,6 +31,7 @@ public class ApplicationStatusService {
     private final PostRepository postRepository;
     private final MemberRepository memberRepository;
     private final NotificationService notificationService;
+    private final RedisNotificationPublisher notificationPublisher;
     private final CarpoolMetrics carpoolMetrics;
     private final ApplicationEventPublisher events;
 
@@ -41,6 +46,11 @@ public class ApplicationStatusService {
         post.incrementPassengers();
         carpoolMetrics.incrementApplicationAccepted();
         notificationService.save(Notification.ofApplicationAccepted(application.getApplicantId(), post.getId()));
+        notificationPublisher.publish(application.getApplicantId(), NotificationPayload.builder()
+                .type(NotificationType.APPLICATION_ACCEPTED)
+                .message("카풀 신청이 승인되었습니다.")
+                .data(Map.of("postId", application.getPostId()))
+                .build());
         return toResponse(application);
     }
 
@@ -54,6 +64,11 @@ public class ApplicationStatusService {
         application.reject();
         carpoolMetrics.incrementApplicationRejected();
         notificationService.save(Notification.ofApplicationRejected(application.getApplicantId(), post.getId()));
+        notificationPublisher.publish(application.getApplicantId(), NotificationPayload.builder()
+                .type(NotificationType.APPLICATION_REJECTED)
+                .message("카풀 신청이 거절되었습니다.")
+                .data(Map.of("postId", application.getPostId()))
+                .build());
         return toResponse(application);
     }
 

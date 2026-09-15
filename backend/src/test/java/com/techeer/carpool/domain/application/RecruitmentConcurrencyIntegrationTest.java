@@ -100,7 +100,7 @@ class RecruitmentConcurrencyIntegrationTest {
         assertThat(posts.findById(post.getId()).orElseThrow().getCurrentPassengers()).isEqualTo(1);
     }
 
-    @Test void rollbackRestoresApplicationCounterNotificationAndOutboxTogether() {
+    @Test void rollbackRestoresApplicationCounterAndNotificationTogether() {
         Post post = post(1, PostType.CARPOOL);
         long applicationId = createService.apply(post.getId(), passenger1).getId();
         long notificationCount = notifications.count();
