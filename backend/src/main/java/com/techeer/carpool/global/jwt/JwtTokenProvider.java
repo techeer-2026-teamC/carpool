@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.util.UUID;
 import java.util.Date;
 
 @Component
@@ -30,28 +30,40 @@ public class JwtTokenProvider {
     }
 
     public String createAccessToken(Long memberId) {
-        return buildToken(memberId, accessTokenExpiration);
+        return buildToken(memberId, accessTokenExpiration, "access");
     }
 
     public String createRefreshToken(Long memberId) {
-        return buildToken(memberId, refreshTokenExpiration);
+        return buildToken(memberId, refreshTokenExpiration, "refresh");
     }
 
-    public boolean validateToken(String token) {
+    public boolean validateAccessToken(String token) {
         try {
-            getClaims(token);
+            getClaims(token, "access");
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
 
+    public void requireAccessToken(String token) {
+        getClaims(token, "access");
+    }
+
+    public Long getMemberIdFromRefreshToken(String token) {
+        return memberId(getClaims(token, "refresh"));
+    }
+
     public Long getMemberIdFromToken(String token) {
-        Object value = getClaims(token).get("memberId");
+        return memberId(getClaims(token, "access"));
+    }
+
+    private Long memberId(Claims claims) {
+        Object value = claims.get("memberId");
         if (value instanceof Long) return (Long) value;
         if (value instanceof Integer) return ((Integer) value).longValue();
         if (value instanceof Number) return ((Number) value).longValue();
-        return null;
+        throw new MalformedJwtException("JWT memberId is missing or invalid");
     }
 
     public LocalDateTime getRefreshTokenExpiresAt() {
@@ -64,7 +76,7 @@ public class JwtTokenProvider {
 
     // 로그아웃 시 AccessToken 블랙리스트 TTL 계산용
     public long getRemainingSeconds(String token) {
-        Date expiration = getClaims(token).getExpiration();
+        Date expiration = getClaims(token, "access").getExpiration();
         long remaining = expiration.getTime() - System.currentTimeMillis();
         return Math.max(0, remaining / 1000);
     }
@@ -72,7 +84,7 @@ public class JwtTokenProvider {
     // 만료(AUTH_005) vs 위변조(AUTH_004) 구분 — TokenReissueService에서 사용
     public void validateRefreshToken(String token) {
         try {
-            getClaims(token);
+            getClaims(token, "refresh");
         } catch (ExpiredJwtException e) {
             throw new CarpoolException(ErrorCode.EXPIRED_TOKEN);
         } catch (JwtException | IllegalArgumentException e) {
@@ -80,20 +92,23 @@ public class JwtTokenProvider {
         }
     }
 
-    private String buildToken(Long memberId, long expiration) {
+    private String buildToken(Long memberId, long expiration, String tokenUse) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
                 .claim("memberId", memberId)
+                .claim("token_use", tokenUse)
+                .id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(secretKey)
                 .compact();
     }
 
-    private Claims getClaims(String token) {
+    private Claims getClaims(String token, String tokenUse) {
         return Jwts.parser()
+                .require("token_use", tokenUse)
                 .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)

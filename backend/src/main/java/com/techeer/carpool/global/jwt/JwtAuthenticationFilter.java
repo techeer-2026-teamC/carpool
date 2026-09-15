@@ -38,7 +38,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                // 캐시 히트: HMAC 검증 스킵
+                // A cache entry must never bypass token purpose, signature, or expiry validation.
+                jwtTokenProvider.requireAccessToken(token);
                 Long memberId = jwtClaimsCacheRepository.findMemberId(token).orElse(null);
                 if (memberId == null) {
                     // 캐시 미스: HMAC 검증 후 캐싱
