@@ -3,6 +3,7 @@ package com.techeer.carpool.global.exception;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    EXPENSE_INVALID_STATUS("EXPENSE_001", "비용 분담을 변경할 수 없는 상태입니다.", HttpStatus.CONFLICT),
     MEETING_FORBIDDEN("MEETING_001", "만남 참여 권한이 없습니다.", HttpStatus.FORBIDDEN),
     MEETING_INVALID_STATUS("MEETING_002", "현재 만남 상태에서는 허용되지 않는 작업입니다.", HttpStatus.CONFLICT),
     LOCATION_WINDOW_CLOSED("MEETING_003", "위치 공유 가능 시간이 아닙니다.", HttpStatus.CONFLICT),
