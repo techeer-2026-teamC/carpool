@@ -55,6 +55,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     List<Post> findByMemberIdAndDeletedFalse(Long memberId);
 
+    Page<Post> findByMemberIdAndDeletedFalse(Long memberId, Pageable pageable);
+
     // 오늘~+48h 출발 게시글만 조회 (캐싱 대상)
     @Query(value = "SELECT p FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' " +
                    "AND p.departureTime >= :from AND p.departureTime < :to ORDER BY p.departureTime ASC",
