@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Access Token → memberId 매핑을 Redis에 캐싱.
- * 매 요청마다 발생하는 HMAC 서명 검증(CPU 연산)을 캐시 히트 시 스킵.
+ * 인증 필터는 캐시 조회 전에도 Access 용도·서명·만료를 필수 검증한다.
  * Key는 SHA-256 해시를 사용해 토큰 원문이 Redis에 저장되지 않도록 함.
  */
 @Repository

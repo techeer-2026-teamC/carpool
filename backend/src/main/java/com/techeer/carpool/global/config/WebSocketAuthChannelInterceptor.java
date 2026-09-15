@@ -28,7 +28,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
             String header=a.getFirstNativeHeader("Authorization");
             if(header==null || !header.startsWith("Bearer ")) throw new MessagingException("Authentication required");
             String token=header.substring(7);
-            if(!tokens.validateToken(token) || blacklist.isBlacklisted(token)) throw new MessagingException("Invalid authentication");
+            if(!tokens.validateAccessToken(token) || blacklist.isBlacklisted(token)) throw new MessagingException("Invalid authentication");
             Long id=tokens.getMemberIdFromToken(token);
             a.setUser(()->id.toString());
             a.getSessionAttributes().put("authExpiresAt", Instant.now().plusSeconds(tokens.getRemainingSeconds(token)));

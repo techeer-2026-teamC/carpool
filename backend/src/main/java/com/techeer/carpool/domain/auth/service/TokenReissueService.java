@@ -20,7 +20,7 @@ public class TokenReissueService {
         // 만료 → AUTH_005, 위변조 → AUTH_004 구분
         jwtTokenProvider.validateRefreshToken(refreshTokenValue);
 
-        Long memberId = jwtTokenProvider.getMemberIdFromToken(refreshTokenValue);
+        Long memberId = jwtTokenProvider.getMemberIdFromRefreshToken(refreshTokenValue);
 
         String stored = refreshTokenRedisRepository.findByMemberId(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.INVALID_TOKEN));
