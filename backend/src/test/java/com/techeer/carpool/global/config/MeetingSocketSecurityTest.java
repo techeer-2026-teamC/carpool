@@ -53,7 +53,7 @@ class MeetingSocketSecurityTest {
         assertThatThrownBy(() -> send(frame(StompCommand.CONNECT, ""))).isInstanceOf(MessagingException.class);
     }
     @Test void expiredSocketIsClosedAndRemovedFromExpiryScan() throws Exception {
-        var sessions = new WebSocketSessions();
+        var sessions = new WebSocketSessions(blacklist);
         var session = mock(WebSocketSession.class);
         var attributes = new HashMap<String,Object>();
         when(session.getId()).thenReturn("socket");
@@ -64,5 +64,47 @@ class MeetingSocketSecurityTest {
         sessions.expire();
         sessions.expire();
         verify(session, times(1)).close(CloseStatus.POLICY_VIOLATION);
+    }
+
+    @Test void idleRevokedSocketsCloseOnNextScanWithOneLookupPerToken() throws Exception {
+        var sessions = new WebSocketSessions(blacklist);
+        var first = connected(sessions,"first","shared-token");
+        var second = connected(sessions,"second","shared-token");
+        sessions.expire();
+        verify(blacklist,times(1)).isBlacklisted("shared-token");
+        verify(first,never()).close(any());
+        verify(second,never()).close(any());
+        when(blacklist.isBlacklisted("shared-token")).thenReturn(true);
+        // No inbound STOMP frame is sent after revocation.
+        sessions.expire();
+        sessions.expire();
+        verify(blacklist,times(2)).isBlacklisted("shared-token");
+        verify(first,times(1)).close(CloseStatus.POLICY_VIOLATION);
+        verify(second,times(1)).close(CloseStatus.POLICY_VIOLATION);
+    }
+
+    @Test void revocationStoreFailureClosesAllAuthenticatedSocketsAndClearsReferences() throws Exception {
+        var sessions = new WebSocketSessions(blacklist);
+        var first = connected(sessions,"first","first-token");
+        var second = connected(sessions,"second","second-token");
+        var connecting = connected(sessions,"connecting",null);
+        when(blacklist.isBlacklisted(anyString())).thenReturn(false)
+                .thenThrow(new IllegalStateException("Redis unavailable"));
+        doThrow(new java.io.IOException("already disconnected")).when(first).close(any());
+        sessions.expire();
+        sessions.expire();
+        verify(blacklist,times(2)).isBlacklisted(anyString());
+        verify(first,times(1)).close(CloseStatus.POLICY_VIOLATION);
+        verify(second,times(1)).close(CloseStatus.POLICY_VIOLATION);
+        verify(connecting,never()).close(any());
+    }
+
+    private WebSocketSession connected(WebSocketSessions sessions,String id,String token) throws Exception {
+        var session = mock(WebSocketSession.class);
+        when(session.getId()).thenReturn(id);
+        when(session.getAttributes()).thenReturn(new HashMap<>());
+        sessions.decorate(mock(WebSocketHandler.class)).afterConnectionEstablished(session);
+        if (token != null) session.getAttributes().put("authToken",token);
+        return session;
     }
 }
