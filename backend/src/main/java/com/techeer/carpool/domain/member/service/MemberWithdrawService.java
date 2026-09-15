@@ -37,11 +37,15 @@ public class MemberWithdrawService {
                 .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
 
         List<Post> myPosts = postRepository.findByMemberIdAndDeletedFalse(memberId);
-        myPosts.forEach(Post::delete);
+        if (myPosts.stream().anyMatch(post -> post.getMeetingCompletedAt() == null))
+            throw new CarpoolException(ErrorCode.MEMBER_ACTIVE_RECRUITMENT);
 
         List<Application> acceptedApplications = applicationRepository
                 .findByApplicantIdAndStatus(memberId, ApplicationStatus.ACCEPTED);
-        acceptedApplications.forEach(Application::reject);
+        if (acceptedApplications.stream().anyMatch(application -> postRepository.findByIdAndDeletedFalse(application.getPostId())
+                .map(post -> post.getMeetingCompletedAt() == null).orElse(false)))
+            throw new CarpoolException(ErrorCode.MEMBER_ACTIVE_RECRUITMENT);
+        // Completed recruitment history remains consistent; withdrawal does not rewrite acceptance or seat counters.
 
         driverRepository.findByMemberIdAndDeletedFalse(memberId)
                 .ifPresent(driver -> driver.delete());

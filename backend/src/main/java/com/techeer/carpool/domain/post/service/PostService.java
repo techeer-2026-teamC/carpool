@@ -86,6 +86,16 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
+    public Page<PostSummaryResponse> getMine(Long memberId, Pageable pageable) {
+        Page<Post> page = postRepository.findByMemberIdAndDeletedFalse(memberId, pageable);
+        Map<Long,Post> withTags = postRepository.findByIdsWithTags(page.map(Post::getId).getContent())
+                .stream().collect(Collectors.toMap(Post::getId, p->p));
+        String nickname = fetchNickname(memberId);
+        double rating = driverRepository.findByMemberIdAndDeletedFalse(memberId).map(Driver::getAverageRating).orElse(0.0);
+        return page.map(p->PostSummaryResponse.from(withTags.getOrDefault(p.getId(),p),nickname,rating));
+    }
+
+    @Transactional(readOnly = true)
     public List<PostSummaryResponse> getAllPosts() {
         List<Post> posts = postRepository.findByDeletedFalseWithTagsOrderByCreatedAtDesc();
         Set<Long> memberIds = posts.stream().map(Post::getMemberId).collect(Collectors.toSet());

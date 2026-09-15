@@ -4,10 +4,10 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
 
+    POST_NOT_FOUND("POST_001", "게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     RECRUITMENT_CUTOFF("POST_005", "출발 또는 만남 완료 이후에는 변경할 수 없습니다.", HttpStatus.CONFLICT),
     RECRUITMENT_FROZEN("POST_006", "신청 이후에는 경로·시간·유형·금액을 변경할 수 없습니다.", HttpStatus.CONFLICT),
     POST_CAPACITY_INVALID("POST_007", "현재 참가 인원보다 정원을 줄일 수 없습니다.", HttpStatus.CONFLICT),
-    POST_NOT_FOUND("POST_001", "게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     POST_FORBIDDEN("POST_002", "게시글 수정/삭제 권한이 없습니다.", HttpStatus.FORBIDDEN),
     COMMENT_NOT_FOUND("COMMENT_001", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     COMMENT_FORBIDDEN("COMMENT_002", "댓글 수정/삭제 권한이 없습니다.", HttpStatus.FORBIDDEN),
@@ -36,6 +36,7 @@ public enum ErrorCode {
     RIDE_INVALID_STATUS("RIDE_003", "현재 상태에서 허용되지 않는 작업입니다.", HttpStatus.CONFLICT),
     RIDE_PASSENGER_NOT_FOUND("RIDE_004", "탑승자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
+    MEMBER_ACTIVE_RECRUITMENT("MEMBER_003", "진행 중인 모집이나 승인이 있어 탈퇴할 수 없습니다. 먼저 참가 상태를 정리해주세요.", HttpStatus.CONFLICT),
     MEMBER_FORBIDDEN("MEMBER_001", "본인의 프로필만 조회할 수 있습니다.", HttpStatus.FORBIDDEN),
 
     POST_ALREADY_CLOSED("POST_003", "이미 마감된 게시글입니다.", HttpStatus.CONFLICT),

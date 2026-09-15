@@ -3,6 +3,8 @@ package com.techeer.carpool.global.metrics;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class CarpoolMetrics {
@@ -41,14 +43,24 @@ public class CarpoolMetrics {
                 .description("드라이버 위치 업데이트 횟수").register(registry);
     }
 
-    public void incrementApplicationSubmitted() { applicationSubmittedCounter.increment(); }
-    public void incrementApplicationAccepted() { applicationAcceptedCounter.increment(); }
-    public void incrementApplicationRejected() { applicationRejectedCounter.increment(); }
-    public void incrementPostCreated() { postCreatedCounter.increment(); }
-    public void incrementPostClosed() { postClosedCounter.increment(); }
-    public void incrementRideStarted() { rideStartedCounter.increment(); }
-    public void incrementRideCompleted() { rideCompletedCounter.increment(); }
+    private void afterCommit(Counter counter) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { counter.increment(); }
+            });
+        } else {
+            counter.increment();
+        }
+    }
+
+    public void incrementApplicationSubmitted() { afterCommit(applicationSubmittedCounter); }
+    public void incrementApplicationAccepted() { afterCommit(applicationAcceptedCounter); }
+    public void incrementApplicationRejected() { afterCommit(applicationRejectedCounter); }
+    public void incrementPostCreated() { afterCommit(postCreatedCounter); }
+    public void incrementPostClosed() { afterCommit(postClosedCounter); }
+    public void incrementRideStarted() { afterCommit(rideStartedCounter); }
+    public void incrementRideCompleted() { afterCommit(rideCompletedCounter); }
     public void incrementOptimisticLockConflict() { optimisticLockConflictCounter.increment(); }
-    public void incrementReviewCreated() { reviewCreatedCounter.increment(); }
+    public void incrementReviewCreated() { afterCommit(reviewCreatedCounter); }
     public void incrementLocationUpdated() { locationUpdatedCounter.increment(); }
 }

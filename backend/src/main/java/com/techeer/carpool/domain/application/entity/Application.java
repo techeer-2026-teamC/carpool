@@ -45,6 +45,8 @@ public class Application extends BaseEntity {
         this.status = ApplicationStatus.REJECTED;
     }
 
+    public void cancel() { this.status = ApplicationStatus.CANCELLED; }
+
     public void resetToPending() {
         this.status = ApplicationStatus.PENDING;
     }

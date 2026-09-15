@@ -45,6 +45,8 @@ public class PostController {
             @RequestParam(required = false) Double lat,
             @RequestParam(required = false) Double lng,
             @RequestParam(required = false) Double radiusKm) {
+        if (page < 0 || size < 1 || size > 50) throw new com.techeer.carpool.global.exception.CarpoolException(
+                com.techeer.carpool.global.exception.ErrorCode.INVALID_INPUT);
         PageRequest pageable = PageRequest.of(page, size);
         boolean hasFilter = date != null || (lat != null && lng != null);
         if (hasFilter) {
@@ -52,6 +54,16 @@ public class PostController {
                     postService.getFilteredPosts(pageable, date, lat, lng, radiusKm)));
         }
         return ResponseEntity.ok(ApiResponse.of("게시글 목록 조회 성공", postService.getUpcomingPagedPosts(pageable)));
+    }
+
+    @GetMapping("/mine")
+    public ResponseEntity<ApiResponse<Page<PostSummaryResponse>>> mine(
+            @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size,
+            Authentication authentication) {
+        if(page<0 || size<1 || size>50) throw new com.techeer.carpool.global.exception.CarpoolException(
+                com.techeer.carpool.global.exception.ErrorCode.INVALID_INPUT);
+        return ResponseEntity.ok(ApiResponse.of("내 모집 목록",postService.getMine((Long)authentication.getPrincipal(),
+                PageRequest.of(page,size,org.springframework.data.domain.Sort.by("departureTime","id").descending()))));
     }
 
     @GetMapping("/{id}")

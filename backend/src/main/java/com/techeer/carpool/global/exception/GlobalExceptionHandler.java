@@ -45,6 +45,20 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("COMMON_001", message));
     }
 
+    @ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            jakarta.validation.ConstraintViolationException.class,
+            org.springframework.web.method.annotation.HandlerMethodValidationException.class,
+            org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidInput(Exception e) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("COMMON_001", "잘못된 입력값입니다."));
+    }
+
+    @ExceptionHandler(org.springframework.dao.PessimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleLockConflict(Exception e) {
+        return ResponseEntity.status(409).body(new ErrorResponse("POST_004", "다른 요청과 충돌했습니다. 다시 시도해주세요."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception e) {
         log.error("Unhandled exception", e);
