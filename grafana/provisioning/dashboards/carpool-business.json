@@ -32,7 +32,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -45,7 +45,7 @@
       "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table" } },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"carpool\"}[1m])) by (le, uri))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"moa\"}[1m])) by (le, uri))",
           "legendFormat": "p95 {{uri}}",
           "refId": "A"
         }
@@ -54,7 +54,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -65,12 +65,12 @@
       "id": 2,
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"carpool\", status=~\"5..\"}[1m]))",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"moa\", status=~\"5..\"}[1m]))",
           "legendFormat": "5xx 에러율",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"carpool\", status=~\"4..\"}[1m]))",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"moa\", status=~\"4..\"}[1m]))",
           "legendFormat": "4xx 에러율",
           "refId": "B"
         }
@@ -86,7 +86,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "color": { "mode": "palette-classic" }, "unit": "ops" }
       },
@@ -109,11 +109,11 @@
           "refId": "C"
         }
       ],
-      "title": "카풀 신청 흐름 (rate/min)",
+      "title": "카풀 신청 흐름 (rate/sec)",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "color": { "mode": "palette-classic" }, "unit": "ops" }
       },
@@ -145,7 +145,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -174,7 +174,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "unit": "ops" }
       },
@@ -198,7 +198,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "unit": "short", "max": 10 },
         "overrides": [
@@ -212,17 +212,17 @@
       "id": 7,
       "targets": [
         {
-          "expr": "hikaricp_connections_active{application=\"carpool\"}",
+          "expr": "hikaricp_connections_active{application=\"moa\"}",
           "legendFormat": "active",
           "refId": "A"
         },
         {
-          "expr": "hikaricp_connections_idle{application=\"carpool\"}",
+          "expr": "hikaricp_connections_idle{application=\"moa\"}",
           "legendFormat": "idle",
           "refId": "B"
         },
         {
-          "expr": "hikaricp_connections_max{application=\"carpool\"}",
+          "expr": "hikaricp_connections_max{application=\"moa\"}",
           "legendFormat": "max",
           "refId": "C"
         }
@@ -231,7 +231,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "unit": "s" }
       },
@@ -239,7 +239,7 @@
       "id": 8,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(lettuce_command_completion_seconds_bucket{application=\"carpool\"}[1m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(lettuce_command_completion_seconds_bucket{application=\"moa\"}[1m])) by (le))",
           "legendFormat": "Redis p95",
           "refId": "A"
         }
@@ -248,7 +248,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": [
@@ -266,17 +266,17 @@
       "id": 9,
       "targets": [
         {
-          "expr": "hikaricp_connections_pending{application=\"carpool\"}",
+          "expr": "hikaricp_connections_pending{application=\"moa\"}",
           "legendFormat": "pending(대기 스레드)",
           "refId": "A"
         },
         {
-          "expr": "hikaricp_connections_active{application=\"carpool\"}",
+          "expr": "hikaricp_connections_active{application=\"moa\"}",
           "legendFormat": "active",
           "refId": "B"
         },
         {
-          "expr": "hikaricp_connections_max{application=\"carpool\"}",
+          "expr": "hikaricp_connections_max{application=\"moa\"}",
           "legendFormat": "max(=30)",
           "refId": "C"
         }
@@ -285,7 +285,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "unit": "s" },
         "overrides": [
@@ -303,12 +303,12 @@
       "id": 10,
       "targets": [
         {
-          "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"carpool\"}[1m]) / clamp_min(rate(hikaricp_connections_acquire_seconds_count{application=\"carpool\"}[1m]), 0.001)",
+          "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"moa\"}[1m]) / clamp_min(rate(hikaricp_connections_acquire_seconds_count{application=\"moa\"}[1m]), 0.001)",
           "legendFormat": "커넥션 획득 평균 대기",
           "refId": "A"
         },
         {
-          "expr": "rate(hikaricp_connections_timeout_total{application=\"carpool\"}[1m])",
+          "expr": "rate(hikaricp_connections_timeout_total{application=\"moa\"}[1m])",
           "legendFormat": "획득 타임아웃/초",
           "refId": "B"
         }
