@@ -2,6 +2,7 @@ package com.techeer.carpool.domain.post.dto;
 
 import com.techeer.carpool.domain.post.entity.Post;
 import com.techeer.carpool.domain.post.entity.PostStatus;
+import com.techeer.carpool.domain.post.entity.PostType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -32,6 +33,11 @@ public class PostSummaryResponse {
     private LocalDateTime departureTime;
     private int maxPassengers;
     private int currentPassengers;
+    private PostType type;
+    private int capacity;
+    private int occupiedSeats;
+    private int availableSeats;
+    private LocalDateTime meetingCompletedAt;
     private PostStatus status;
     private boolean autoAccept;
     private Integer price;
@@ -54,6 +60,11 @@ public class PostSummaryResponse {
                 .departureTime(post.getDepartureTime())
                 .maxPassengers(post.getMaxPassengers())
                 .currentPassengers(post.getCurrentPassengers())
+                .type(post.getType())
+                .capacity(post.getCapacity())
+                .occupiedSeats(post.getOccupiedSeats())
+                .availableSeats(post.getAvailableSeats())
+                .meetingCompletedAt(post.getMeetingCompletedAt())
                 .status(post.getStatus())
                 .autoAccept(post.isAutoAccept())
                 .price(post.getPrice())

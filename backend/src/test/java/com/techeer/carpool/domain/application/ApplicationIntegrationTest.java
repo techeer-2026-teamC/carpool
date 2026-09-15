@@ -187,8 +187,8 @@ class ApplicationIntegrationTest {
     }
 
     @Test
-    @DisplayName("autoAccept 게시글 신청 - 즉시 ACCEPTED")
-    void apply_autoAccept() throws Exception {
+    @DisplayName("이전 자동수락 설정도 모집자 승인 전에는 PENDING")
+    void apply_legacyAutoAcceptRequiresApproval() throws Exception {
         Post autoPost = postRepository.save(Post.builder()
                 .memberId(ownerId)
                 .title("자동수락 카풀")
@@ -202,12 +202,12 @@ class ApplicationIntegrationTest {
         mockMvc.perform(post("/api/v1/posts/{postId}/applications", autoPost.getId())
                         .header("Authorization", applicant1Token))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.status").value("ACCEPTED"));
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
 
-        // currentPassengers 증가 확인
+        // 대기 신청은 정원을 차지하지 않는다.
         mockMvc.perform(get("/api/v1/posts/{id}", autoPost.getId())
                         .header("Authorization", ownerToken))
-                .andExpect(jsonPath("$.data.currentPassengers").value(1));
+                .andExpect(jsonPath("$.data.currentPassengers").value(0));
     }
 
     // ── 신청 목록 조회 ───────────────────────────────────────

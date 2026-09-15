@@ -9,6 +9,8 @@ import java.util.Optional;
 
 public interface ApplicationRepository extends JpaRepository<Application, Long> {
 
+    boolean existsByPostId(Long postId);
+
     boolean existsByPostIdAndApplicantId(Long postId, Long applicantId);
 
     List<Application> findByApplicantIdOrderByCreatedAtDesc(Long applicantId);

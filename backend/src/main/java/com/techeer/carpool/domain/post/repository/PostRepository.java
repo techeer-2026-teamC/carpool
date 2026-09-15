@@ -31,6 +31,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     Optional<Post> findByIdAndDeletedFalse(Long id);
 
+    @Query(value = "select p.id from posts p where p.deleted = false and p.status = 'OPEN' and p.departure_time <= :now order by p.id limit 100", nativeQuery = true)
+    List<Long> findExpiredPostIds(@Param("now") LocalDateTime now);
+
+    @Query(value = "select p.id from posts p where p.deleted = false and p.status <> 'CANCELLED' and p.meeting_completed_at is null and p.departure_notified_at is null and p.departure_time > :from and p.departure_time <= :to order by p.id limit 100", nativeQuery = true)
+    List<Long> findApproachingPostIds(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
     // 출발 시간이 지났지만 아직 OPEN 상태인 게시글 (자동 마감 대상)
     @Query("SELECT p FROM Post p WHERE p.deleted = false AND p.status = 'OPEN' AND p.departureTime <= :now")
     List<Post> findExpiredOpenPosts(@Param("now") LocalDateTime now);
@@ -43,7 +49,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p LEFT JOIN FETCH p.tags WHERE p.id = :id AND p.deleted = false")
     Optional<Post> findByIdAndDeletedFalseWithTags(@Param("id") Long id);
 
-    @Lock(LockModeType.OPTIMISTIC)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Post p WHERE p.id = :id AND p.deleted = false")
     Optional<Post> findByIdAndDeletedFalseWithLock(@Param("id") Long id);
 
