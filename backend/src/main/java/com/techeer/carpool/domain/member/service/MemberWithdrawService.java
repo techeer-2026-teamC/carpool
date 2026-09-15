@@ -17,7 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.TreeSet;
 
 @Service
 @RequiredArgsConstructor
@@ -33,19 +34,24 @@ public class MemberWithdrawService {
 
     @Transactional
     public void withdraw(Long memberId, String accessToken) {
-        Member member = memberRepository.findByIdAndDeletedFalse(memberId)
+        Member member = memberRepository.findActiveByIdWithLock(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
 
-        List<Post> myPosts = postRepository.findByMemberIdAndDeletedFalse(memberId);
-        if (myPosts.stream().anyMatch(post -> post.getMeetingCompletedAt() == null))
-            throw new CarpoolException(ErrorCode.MEMBER_ACTIVE_RECRUITMENT);
-
-        List<Application> acceptedApplications = applicationRepository
-                .findByApplicantIdAndStatus(memberId, ApplicationStatus.ACCEPTED);
-        if (acceptedApplications.stream().anyMatch(application -> postRepository.findByIdAndDeletedFalse(application.getPostId())
-                .map(post -> post.getMeetingCompletedAt() == null).orElse(false)))
-            throw new CarpoolException(ErrorCode.MEMBER_ACTIVE_RECRUITMENT);
-        // Completed recruitment history remains consistent; withdrawal does not rewrite acceptance or seat counters.
+        // Only scalar IDs are loaded before locking; application state is read again under the post lock.
+        TreeSet<Long> postIds = new TreeSet<>(postRepository.findUnresolvedOwnedIds(memberId));
+        postIds.addAll(applicationRepository.findUnresolvedPostIds(memberId));
+        for (Long postId : postIds) {
+            Post post = postRepository.findByIdAndDeletedFalseWithLock(postId).orElse(null);
+            if (post == null || post.getMeetingCompletedAt() != null) continue;
+            Application application = applicationRepository.findByPostIdAndApplicantId(postId, memberId).orElse(null);
+            boolean activeHost = post.getMemberId().equals(memberId)
+                    && (LocalDateTime.now().isBefore(post.getDepartureTime()) || post.getCurrentPassengers() > 0);
+            if (activeHost || (application != null && application.getStatus() == ApplicationStatus.ACCEPTED)) {
+                throw new CarpoolException(ErrorCode.MEMBER_ACTIVE_RECRUITMENT);
+            }
+            if (application != null && application.getStatus() == ApplicationStatus.PENDING) application.cancel();
+        }
+        // Expired empty recruitment and completed history remain intact; accepted counters never change here.
 
         driverRepository.findByMemberIdAndDeletedFalse(memberId)
                 .ifPresent(driver -> driver.delete());

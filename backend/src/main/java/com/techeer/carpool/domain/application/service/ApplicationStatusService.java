@@ -32,6 +32,7 @@ public class ApplicationStatusService {
 
     @Transactional
     public ApplicationResponse accept(Long applicationId, Long requesterId) {
+        lockActiveApplicant(applicationId);
         Post post = lockPost(applicationId);
         requireOwner(post, requesterId);
         Application application = findApplication(applicationId);
@@ -72,6 +73,7 @@ public class ApplicationStatusService {
 
     @Transactional
     public ApplicationResponse cancelReject(Long applicationId, Long requesterId) {
+        lockActiveApplicant(applicationId);
         Post post = lockPost(applicationId);
         requireOwner(post, requesterId);
         post.requireBeforeCutoff(LocalDateTime.now());
@@ -94,6 +96,13 @@ public class ApplicationStatusService {
         }
         application.cancel();
         return toResponse(application);
+    }
+
+    private void lockActiveApplicant(Long applicationId) {
+        Long applicantId = applicationRepository.findApplicantIdById(applicationId)
+                .orElseThrow(() -> new CarpoolException(ErrorCode.APPLICATION_NOT_FOUND));
+        memberRepository.findActiveByIdWithLock(applicantId)
+                .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
     }
 
     private Post lockPost(Long applicationId) {

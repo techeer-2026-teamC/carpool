@@ -58,6 +58,8 @@ public class PostService {
     @CacheEvict(cacheNames = CacheConfig.UPCOMING_POSTS, allEntries = true)
     @Transactional
     public PostDetailResponse createPost(PostCreateRequest request, Long memberId) {
+        memberRepository.findActiveByIdWithLock(memberId)
+                .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
         Driver driver = request.getType() == PostType.TAXI ? null : driverRepository.findByMemberIdAndDeletedFalse(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
         if (request.getType() == PostType.TAXI && request.getMaxPassengers() < 2) throw new CarpoolException(ErrorCode.POST_CAPACITY_INVALID);

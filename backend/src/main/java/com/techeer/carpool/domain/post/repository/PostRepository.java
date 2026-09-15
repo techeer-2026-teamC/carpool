@@ -55,6 +55,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     List<Post> findByMemberIdAndDeletedFalse(Long memberId);
 
+    @Query("select p.id from Post p where p.memberId = :memberId and p.deleted = false and p.meetingCompletedAt is null")
+    List<Long> findUnresolvedOwnedIds(Long memberId);
+
     Page<Post> findByMemberIdAndDeletedFalse(Long memberId, Pageable pageable);
 
     // 오늘~+48h 출발 게시글만 조회 (캐싱 대상)
