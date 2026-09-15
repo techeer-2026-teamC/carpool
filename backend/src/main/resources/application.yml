@@ -3,6 +3,11 @@ spring:
     active: local
   application:
     name: moa
+  task:
+    scheduling:
+      pool:
+        size: ${SCHEDULER_POOL_SIZE:4}
+      thread-name-prefix: moa-scheduled-
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/carpool}

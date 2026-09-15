@@ -4,11 +4,8 @@ import com.techeer.carpool.domain.application.entity.Application;
 import com.techeer.carpool.domain.application.entity.ApplicationStatus;
 import com.techeer.carpool.domain.application.repository.ApplicationRepository;
 import com.techeer.carpool.domain.driver.repository.DriverRepository;
-import com.techeer.carpool.domain.notification.dto.NotificationPayload;
 import com.techeer.carpool.domain.notification.entity.Notification;
-import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
 import com.techeer.carpool.domain.notification.service.NotificationService;
-import com.techeer.carpool.domain.notification.type.NotificationType;
 import com.techeer.carpool.domain.post.entity.Post;
 import com.techeer.carpool.domain.post.entity.PostStatus;
 import com.techeer.carpool.domain.post.repository.PostRepository;
@@ -48,7 +45,6 @@ public class RideService {
     private final PostRepository postRepository;
     private final DriverRepository driverRepository;
     private final ApplicationRepository applicationRepository;
-    private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
     private final CarpoolMetrics carpoolMetrics;
     private final com.techeer.carpool.domain.member.repository.MemberRepository memberRepository;
@@ -106,11 +102,6 @@ public class RideService {
         notificationService.saveAll(passengerIds.stream()
                 .map(id -> Notification.ofRideStarted(id, rideId))
                 .collect(Collectors.toList()));
-        notificationPublisher.publishToMany(passengerIds, NotificationPayload.builder()
-                .type(NotificationType.RIDE_STARTED)
-                .message("카풀 운행이 시작되었습니다.")
-                .data(Map.of("rideId", rideId))
-                .build());
 
         Post post = postRepository.findByIdAndDeletedFalse(ride.getPostId()).orElse(null);
         return RideResponse.from(ride, post);
@@ -146,11 +137,6 @@ public class RideService {
         notificationService.saveAll(passengerIds.stream()
                 .map(id -> Notification.ofRideEnded(id, rideId))
                 .collect(Collectors.toList()));
-        notificationPublisher.publishToMany(passengerIds, NotificationPayload.builder()
-                .type(NotificationType.RIDE_ENDED)
-                .message("카풀 운행이 종료되었습니다.")
-                .data(Map.of("rideId", rideId))
-                .build());
 
         Post post = postRepository.findByIdAndDeletedFalse(ride.getPostId()).orElse(null);
         return RideResponse.from(ride, post);

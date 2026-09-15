@@ -1,10 +1,7 @@
 package com.techeer.carpool.domain.post.scheduler;
 
-import com.techeer.carpool.domain.notification.dto.NotificationPayload;
 import com.techeer.carpool.domain.notification.entity.Notification;
-import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
 import com.techeer.carpool.domain.notification.service.NotificationService;
-import com.techeer.carpool.domain.notification.type.NotificationType;
 import com.techeer.carpool.domain.post.entity.Post;
 import com.techeer.carpool.domain.post.repository.PostRepository;
 import com.techeer.carpool.global.config.CacheConfig;
@@ -19,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -32,7 +28,6 @@ public class PostScheduler {
 
     private final PostRepository postRepository;
     private final NotificationService notificationService;
-    private final RedisNotificationPublisher notificationPublisher;
     private final StringRedisTemplate stringRedisTemplate;
     private final CacheManager cacheManager;
 
@@ -73,11 +68,6 @@ public class PostScheduler {
                 .collect(Collectors.toList()));
 
         unnotified.forEach(p -> {
-            notificationPublisher.publish(p.getMemberId(), NotificationPayload.builder()
-                    .type(NotificationType.DEPARTURE_APPROACHING)
-                    .message("1시간 후 출발 예정입니다. 카풀을 마감해 주세요.")
-                    .data(Map.of("postId", p.getId()))
-                    .build());
             stringRedisTemplate.opsForValue()
                     .set(DEPARTURE_NOTIF_KEY + p.getId(), "1", Duration.ofHours(3));
         });
