@@ -88,6 +88,7 @@ public class RedisConfig {
     public RedisMessageListenerContainer listenerContainer(
             RedisConnectionFactory factory,
             RedisNotificationSubscriber subscriber,
+            com.techeer.carpool.domain.meeting.MeetingSocket.Fanout meetingFanout,
             @Qualifier("redisPubSubMessageExecutor") ThreadPoolExecutor messageExecutor,
             @Qualifier("redisPubSubSubscriptionExecutor") ThreadPoolExecutor subscriptionExecutor) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
@@ -98,6 +99,7 @@ public class RedisConfig {
                 subscriber,
                 new PatternTopic("notification:*")
         );
+        container.addMessageListener(meetingFanout, new org.springframework.data.redis.listener.ChannelTopic(com.techeer.carpool.domain.meeting.MeetingLocations.CHANNEL));
         return container;
     }
 }

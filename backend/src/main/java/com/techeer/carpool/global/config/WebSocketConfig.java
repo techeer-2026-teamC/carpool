@@ -12,11 +12,13 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import java.util.Arrays;
 
 @Configuration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="app.role",havingValue="api",matchIfMissing=true)
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthChannelInterceptor authInterceptor;
+    private final WebSocketSessions sessions;
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigin;
@@ -41,8 +43,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(authInterceptor);
         registration.taskExecutor()
-                .corePoolSize(200)
-                .maxPoolSize(200)
+                .corePoolSize(4)
+                .maxPoolSize(8)
                 .queueCapacity(500);
+    }
+    @Override
+    public void configureWebSocketTransport(org.springframework.web.socket.config.annotation.WebSocketTransportRegistration registration) {
+        registration.setMessageSizeLimit(4096).setSendBufferSizeLimit(65536).setSendTimeLimit(5000)
+                .addDecoratorFactory(sessions::decorate);
     }
 }
