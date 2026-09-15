@@ -4,9 +4,13 @@ import com.techeer.carpool.domain.notification.dto.NotificationPage;
 import com.techeer.carpool.domain.notification.emitter.SseEmitterRegistry;
 import com.techeer.carpool.domain.notification.service.NotificationService;
 import com.techeer.carpool.global.common.ApiResponse;
+import com.techeer.carpool.global.exception.CarpoolException;
+import com.techeer.carpool.global.exception.ErrorCode;
+import com.techeer.carpool.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -18,10 +22,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class NotificationController {
     private final SseEmitterRegistry sseEmitterRegistry;
     private final NotificationService notificationService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(Authentication authentication) {
-        return sseEmitterRegistry.subscribe((Long) authentication.getPrincipal());
+    public SseEmitter subscribe(Authentication authentication, @RequestHeader("Authorization") String authorization) {
+        long remainingMillis = jwtTokenProvider.getRemainingSeconds(authorization.substring(7)) * 1000;
+        if (remainingMillis <= 0) throw new CarpoolException(ErrorCode.EXPIRED_TOKEN);
+        return sseEmitterRegistry.subscribe((Long) authentication.getPrincipal(), remainingMillis);
     }
 
     @GetMapping
@@ -43,4 +50,8 @@ public class NotificationController {
         return ApiResponse.of("알림을 읽었습니다.");
     }
 
+    @ExceptionHandler(SseEmitterRegistry.CapacityExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> capacityExceeded() {
+        return ResponseEntity.status(429).body(ApiResponse.of("실시간 연결이 많습니다. 알림함을 조회하며 잠시 후 다시 연결해 주세요."));
+    }
 }
