@@ -1,0 +1,31 @@
+name: moa-local
+services:
+  db:
+    image: moa-postgis:15
+    build:
+      context: ./deploy/moa
+      dockerfile: Dockerfile.postgis
+    environment:
+      POSTGRES_DB: moa
+      POSTGRES_USER: moa
+      POSTGRES_PASSWORD: moa-local-only
+    ports: ["127.0.0.1:15432:5432"]
+    volumes: ["moa_database:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moa -d moa"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    ports: ["127.0.0.1:16379:6379"]
+    volumes: ["moa_redis:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  moa_database:
+  moa_redis:
