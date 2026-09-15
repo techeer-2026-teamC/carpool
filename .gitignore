@@ -35,3 +35,10 @@ k6/results/
 .idea/
 .claude/
 .omc/
+
+# 개인 작업물 및 로컬 데모
+AGENTS.md
+demo/
+
+# macOS 메타데이터
+.DS_Store
