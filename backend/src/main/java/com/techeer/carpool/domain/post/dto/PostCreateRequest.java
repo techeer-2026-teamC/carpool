@@ -1,6 +1,7 @@
 package com.techeer.carpool.domain.post.dto;
 
-import jakarta.validation.constraints.Future;
+import com.techeer.carpool.domain.post.entity.PostType;
+import jakarta.validation.constraints.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,13 +21,25 @@ public class PostCreateRequest {
     @NotBlank(message = "출발지는 필수입니다.")
     private String departureLocation;
 
+    @NotNull
+    @DecimalMin("-90")
+    @DecimalMax("90")
     private Double departureLat;
+    @NotNull
+    @DecimalMin("-180")
+    @DecimalMax("180")
     private Double departureLng;
 
     @NotBlank(message = "목적지는 필수입니다.")
     private String destinationLocation;
 
+    @NotNull
+    @DecimalMin("-90")
+    @DecimalMax("90")
     private Double destinationLat;
+    @NotNull
+    @DecimalMin("-180")
+    @DecimalMax("180")
     private Double destinationLng;
 
     @NotNull(message = "출발 시간은 필수입니다.")
@@ -37,7 +50,11 @@ public class PostCreateRequest {
     private int maxPassengers;
 
     private String description;
+    @AssertFalse(message = "모집자 승인 방식만 지원합니다.")
     private boolean autoAccept;
+    @NotNull
+    private PostType type = PostType.CARPOOL;
+    @Min(0)
     private Integer price;
     private List<Long> tagIds;
 }

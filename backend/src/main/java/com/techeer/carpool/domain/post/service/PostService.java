@@ -9,11 +9,8 @@ import com.techeer.carpool.domain.driver.entity.Driver;
 import com.techeer.carpool.domain.driver.repository.DriverRepository;
 import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
-import com.techeer.carpool.domain.notification.dto.NotificationPayload;
 import com.techeer.carpool.domain.notification.entity.Notification;
-import com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher;
 import com.techeer.carpool.domain.notification.service.NotificationService;
-import com.techeer.carpool.domain.notification.type.NotificationType;
 import com.techeer.carpool.domain.post.dto.PostCreateRequest;
 import com.techeer.carpool.domain.post.dto.PostDetailResponse;
 import com.techeer.carpool.domain.post.dto.PostPageCache;
@@ -25,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import com.techeer.carpool.domain.post.entity.Post;
+import com.techeer.carpool.domain.post.entity.PostType;
 import com.techeer.carpool.domain.post.entity.PostUpdateCommand;
 import com.techeer.carpool.domain.post.entity.Tag;
 import com.techeer.carpool.domain.post.repository.PostRepository;
@@ -53,7 +51,6 @@ public class PostService {
     private final ApplicationRepository applicationRepository;
     private final CommentService commentService;
     private final DriverRepository driverRepository;
-    private final RedisNotificationPublisher notificationPublisher;
     private final NotificationService notificationService;
     private final CarpoolMetrics carpoolMetrics;
     private final PostUpcomingCacheService postUpcomingCacheService;
@@ -61,12 +58,14 @@ public class PostService {
     @CacheEvict(cacheNames = CacheConfig.UPCOMING_POSTS, allEntries = true)
     @Transactional
     public PostDetailResponse createPost(PostCreateRequest request, Long memberId) {
-        Driver driver = driverRepository.findByMemberIdAndDeletedFalse(memberId)
+        Driver driver = request.getType() == PostType.TAXI ? null : driverRepository.findByMemberIdAndDeletedFalse(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
+        if (request.getType() == PostType.TAXI && request.getMaxPassengers() < 2) throw new CarpoolException(ErrorCode.POST_CAPACITY_INVALID);
 
         List<Tag> tags = resolveTags(request.getTagIds());
         Post post = Post.builder()
                 .memberId(memberId)
+                .type(request.getType())
                 .title(request.getTitle())
                 .departureLocation(request.getDepartureLocation())
                 .departureLat(request.getDepartureLat())
@@ -83,7 +82,7 @@ public class PostService {
                 .build();
         Post saved = postRepository.save(post);
         carpoolMetrics.incrementPostCreated();
-        return PostDetailResponse.from(saved, fetchNickname(saved.getMemberId()), driver.getAverageRating(), List.of());
+        return PostDetailResponse.from(saved, fetchNickname(saved.getMemberId()), driver == null ? 0.0 : driver.getAverageRating(), List.of());
     }
 
     @Transactional(readOnly = true)
@@ -185,11 +184,12 @@ public class PostService {
     @CacheEvict(cacheNames = CacheConfig.UPCOMING_POSTS, allEntries = true)
     @Transactional
     public PostDetailResponse updatePost(Long id, PostUpdateRequest request, Long requesterId) {
-        Post post = postRepository.findByIdAndDeletedFalse(id)
+        Post post = postRepository.findByIdAndDeletedFalseWithLock(id)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.POST_NOT_FOUND));
         validateOwner(post, requesterId);
         List<Tag> tags = resolveTags(request.getTagIds());
-        post.updateFrom(new PostUpdateCommand(
+        post.requireBeforeCutoff(LocalDateTime.now());
+        PostUpdateCommand command = new PostUpdateCommand(
                 request.getTitle(),
                 request.getDepartureLocation(),
                 request.getDepartureLat(),
@@ -204,7 +204,13 @@ public class PostService {
                 request.getStatus(),
                 request.getPrice(),
                 tags
-        ));
+        );
+        PostType nextType = request.getType() != null ? request.getType() : post.getType();
+        if (nextType == PostType.CARPOOL && post.getType() != nextType) {
+            driverRepository.findByMemberIdAndDeletedFalse(requesterId).orElseThrow(() -> new CarpoolException(ErrorCode.DRIVER_NOT_FOUND));
+        }
+        post.validateUpdate(command, nextType, applicationRepository.existsByPostId(id));
+        post.updateFrom(command);
         double rating = driverRepository.findByMemberIdAndDeletedFalse(post.getMemberId())
                 .map(Driver::getAverageRating)
                 .orElse(0.0);
@@ -214,9 +220,10 @@ public class PostService {
     @CacheEvict(cacheNames = CacheConfig.UPCOMING_POSTS, allEntries = true)
     @Transactional
     public void deletePost(Long id, Long requesterId) {
-        Post post = postRepository.findByIdAndDeletedFalse(id)
+        Post post = postRepository.findByIdAndDeletedFalseWithLock(id)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.POST_NOT_FOUND));
         validateOwner(post, requesterId);
+        post.requireBeforeCutoff(LocalDateTime.now());
 
         List<Application> acceptedApps = applicationRepository.findByPostIdAndStatus(id, ApplicationStatus.ACCEPTED);
         List<Long> acceptedIds = acceptedApps.stream()
@@ -226,13 +233,12 @@ public class PostService {
         notificationService.saveAll(acceptedIds.stream()
                 .map(aid -> Notification.ofPostCancelled(aid, id))
                 .collect(Collectors.toList()));
-        notificationPublisher.publishToMany(acceptedIds, NotificationPayload.builder()
-                .type(NotificationType.POST_CANCELLED)
-                .message("신청한 카풀 게시글이 취소되었습니다.")
-                .data(Map.of("postId", id))
-                .build());
 
-        acceptedApps.forEach(Application::reject);
+        post.close();
+        acceptedApps.forEach(application -> {
+            application.reject();
+            post.decrementPassengers();
+        });
 
         List<Application> pendingApps = applicationRepository.findByPostIdAndStatus(id, ApplicationStatus.PENDING);
         pendingApps.forEach(Application::reject);

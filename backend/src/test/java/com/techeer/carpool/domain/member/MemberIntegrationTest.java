@@ -2,6 +2,7 @@ package com.techeer.carpool.domain.member;
 
 import tools.jackson.databind.ObjectMapper;
 import com.techeer.carpool.domain.application.entity.ApplicationStatus;
+import com.techeer.carpool.domain.application.entity.Application;
 import com.techeer.carpool.domain.application.repository.ApplicationRepository;
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
@@ -220,11 +221,11 @@ class MemberIntegrationTest {
                 .autoAccept(true)
                 .build());
 
-        // autoAccept=true이므로 신청 즉시 ACCEPTED
-        mockMvc.perform(post("/api/v1/posts/{postId}/applications", post.getId())
-                        .header("Authorization", token))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.status").value("ACCEPTED"));
+        Application accepted = Application.builder().postId(post.getId()).applicantId(memberId).build();
+        accepted.accept();
+        applicationRepository.save(accepted);
+        post.incrementPassengers();
+        postRepository.save(post);
 
         // 탈퇴
         mockMvc.perform(delete("/api/v1/members/me")

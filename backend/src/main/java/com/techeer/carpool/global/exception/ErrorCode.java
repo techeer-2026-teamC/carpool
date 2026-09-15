@@ -4,6 +4,9 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
 
+    RECRUITMENT_CUTOFF("POST_005", "출발 또는 만남 완료 이후에는 변경할 수 없습니다.", HttpStatus.CONFLICT),
+    RECRUITMENT_FROZEN("POST_006", "신청 이후에는 경로·시간·유형·금액을 변경할 수 없습니다.", HttpStatus.CONFLICT),
+    POST_CAPACITY_INVALID("POST_007", "현재 참가 인원보다 정원을 줄일 수 없습니다.", HttpStatus.CONFLICT),
     POST_NOT_FOUND("POST_001", "게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     POST_FORBIDDEN("POST_002", "게시글 수정/삭제 권한이 없습니다.", HttpStatus.FORBIDDEN),
     COMMENT_NOT_FOUND("COMMENT_001", "댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
