@@ -4,7 +4,7 @@
 
 **카풀·택시 동승의 검색 → 신청·승인 → 만남을 연결하는 서버**
 
-[프로젝트 소개](https://github.com/techeer-2026-teamC) · [Notion 기술 문서](https://www.notion.so/3dc226545d1581feae7fe91dbd0c68dd) · [프론트엔드](https://github.com/techeer-2026-teamC/carpool-front/tree/pr/moa-front-12-docs)
+[프로젝트 소개](https://github.com/techeer-2026-teamC) · [Notion 기술 문서](https://www.notion.so/3dc226545d1581feae7fe91dbd0c68dd) · [프론트엔드](https://github.com/techeer-2026-teamC/carpool-front)
 
 Java 17 · Spring Boot 4 · PostgreSQL 15/PostGIS · Redis 7 · Prometheus/Grafana
 
@@ -41,7 +41,7 @@ docker compose -f docker-compose.moa.yml --profile monitoring up -d --build
 
 Compose의 비밀번호·JWT 값은 로컬 예제입니다. 전용 빈 DB에서 Flyway를 시작하며 기존 운영 DB에 자동 baseline하지 않습니다. JVM·DB 연결 시간대는 Asia/Seoul입니다.
 
-프론트는 누적 구현이 있는 `pr/moa-front-12-docs` 브랜치에서 `npm ci && npm run dev`로 실행합니다. CORS origin은 `http://localhost:5173`입니다. 신규 UI는 구형 mock API·자동 생성 테스트 계정을 전제로 하지 않습니다.
+프론트는 [저장소의 `main`](https://github.com/techeer-2026-teamC/carpool-front)에서 `npm ci && npm run dev`로 실행합니다. CORS origin은 `http://localhost:5173`입니다. 신규 UI는 구형 mock API·자동 생성 테스트 계정을 전제로 하지 않습니다.
 
 [상세 실행·중지·테스트 안내](docs/moa-local.md)
 
@@ -85,7 +85,7 @@ DB 이미지는 위 Compose 빌드로 준비합니다. 테스트는 별도 Postg
 - [main@a334837 CI](https://github.com/techeer-2026-teamC/carpool/actions/runs/35563997538)의 빌드·의존성 제출이 성공했습니다. 현재 workflow에는 배포 작업이 없습니다.
 - 프로필·탈퇴 경합, Refresh 토큰 원자적 교체, 위치 공유 세션, 활성 운전자 유일성, 모집 수정 계약과 인증 실패 처리를 검증했습니다.
 - 같은 코드 트리에서 실제 HTTP/STOMP 연동 테스트 **1개 통과**: HTTP 요청 27건으로 TAXI 모집·승인과 위치 UUID 시작·전송·중지, 늦은 전송 및 이전 UUID의 삭제 차단을 확인했습니다. 전용 서버·DB·Redis는 정리했습니다.
-- 프론트 누적 브랜치는 테스트 **49개 통과**·빌드 성공을 확인했으며, 아직 main 병합 전입니다. 아래 브라우저·관측 검증을 이번에 다시 실행한 것은 아닙니다.
+- 프론트 기능 PR #8–#19와 CI PR #20도 `main@08bf67b`에 병합했고 [최종 main CI](https://github.com/techeer-2026-teamC/carpool-front/actions/runs/35564576077)가 성공했습니다. 테스트 **49개 통과**·빌드 성공을 확인한 코드 트리와 같으며, 아래 브라우저·관측 검증을 이번에 다시 실행한 것은 아닙니다.
 
 ### 2026-09-15 — 이전 기능·관측 검증 이력
 
