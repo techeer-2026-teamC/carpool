@@ -20,10 +20,10 @@ import java.security.Principal;
 @ConditionalOnProperty(name="app.role",havingValue="api",matchIfMissing=true)
 public class MeetingSocket {
     private final MeetingLocations locations;
-    public record Update(double latitude, double longitude) {}
+    public record Update(double latitude, double longitude, String generation) {}
     @MessageMapping("/meetings/{postId}/location")
     public void update(@DestinationVariable Long postId, @Payload Update position, Principal principal) {
-        locations.update(postId, Long.valueOf(principal.getName()), position.latitude(), position.longitude());
+        locations.update(postId, Long.valueOf(principal.getName()), position.latitude(), position.longitude(), position.generation());
     }
 
     @Configuration

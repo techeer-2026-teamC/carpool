@@ -49,3 +49,13 @@ docker compose -f docker-compose.moa.yml --profile monitoring down
 ```
 
 이 명령은 컨테이너를 중지하며 DB·Redis·관측 데이터 볼륨을 보존합니다.
+
+## 만남 위치 공유 세션
+
+- 공유를 켤 때 `POST /api/v1/posts/{postId}/meeting/locations/me`를 호출해 `data.generation` UUID를 받습니다.
+- `/app/meetings/{postId}/location` STOMP 메시지는 `{latitude, longitude, generation}`을 보냅니다. generation 없는 기존 클라이언트는 사용할 수 없으므로 프론트와 함께 반영합니다.
+- 공유 중지는 `DELETE /api/v1/posts/{postId}/meeting/locations/me?generation={UUID}`입니다. 이전 세션의 늦은 중지 요청은 새 세션에 영향을 주지 않습니다.
+- Redis Lua가 세션 비교·4초 제한·좌표 저장·발행을 원자적으로 처리합니다. 중지 이후 도착한 이전 전송은 저장·발행하지 않습니다. 좌표는 최대 60초, 세션은 공유 가능 시간까지 보관합니다.
+- 공유 시작과 참가 취소는 같은 DB 모집 행 잠금 아래 Redis 세션을 생성·폐기합니다. 빈도가 낮은 이 두 경로에는 Redis I/O가 포함되며 연결·명령 timeout은 각각 1초입니다. 위치 전송마다 DB 잠금을 잡지는 않습니다.
+- 취소 중 Redis 폐기에 실패하면 DB 취소도 롤백합니다. Redis 폐기 후 DB가 롤백하면 공유만 중지되므로 다시 켜야 합니다. 참가 취소·재승인 후에는 새 generation이 필요합니다.
+- 시작 응답 전에 화면을 닫거나 중지한 프론트는 늦게 반환된 generation도 정리해야 합니다. 이미 전송된 메시지를 회수하지는 않으며, 수신 API는 기존대로 현재 좌표와 참가 권한을 재확인합니다.
