@@ -116,7 +116,7 @@ class DriverLifecycleIntegrationTest {
             jdbc.execute("CREATE TABLE " + schema + ".drivers (driver_id bigint PRIMARY KEY, member_id bigint NOT NULL, deleted boolean NOT NULL)");
             jdbc.execute("INSERT INTO " + schema + ".drivers VALUES (1, 42, false), (2, 42, false)");
             Flyway flyway = Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                    .schemas(schema).defaultSchema(schema).baselineOnMigrate(true).baselineVersion("7").load();
+                    .schemas(schema).defaultSchema(schema).baselineOnMigrate(true).baselineVersion("7").target("8").load();
             assertThatThrownBy(flyway::migrate).isInstanceOf(FlywayException.class)
                     .hasStackTraceContaining("docs/migrations/V8-active-driver.md");
             assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema + ".drivers WHERE deleted=false", Long.class))
