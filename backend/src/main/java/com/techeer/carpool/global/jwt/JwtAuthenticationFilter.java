@@ -24,7 +24,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final BlacklistRedisRepository blacklistRedisRepository;
-    private final JwtClaimsCacheRepository jwtClaimsCacheRepository;
     private final MemberRepository members;
 
     @Override
@@ -40,15 +39,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                // A cache entry must never bypass token purpose, signature, or expiry validation.
-                jwtTokenProvider.requireAccessToken(token);
-                Long memberId = jwtClaimsCacheRepository.findMemberId(token).orElse(null);
-                if (memberId == null) {
-                    // 캐시 미스: HMAC 검증 후 캐싱
-                    memberId = jwtTokenProvider.getMemberIdFromToken(token);
-                    long remaining = jwtTokenProvider.getRemainingSeconds(token);
-                    jwtClaimsCacheRepository.save(token, memberId, remaining);
-                }
+                // Signature, access purpose, expiry and member ID come from one validated parse.
+                Long memberId = jwtTokenProvider.getMemberIdFromToken(token);
 
                 if (!members.existsByIdAndDeletedFalse(memberId)) {
                     SecurityContextHolder.clearContext();

@@ -12,7 +12,6 @@ import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -20,7 +19,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.*;
@@ -28,17 +26,14 @@ import static org.mockito.Mockito.*;
 
 class JwtRedisFailureTest {
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
-    private final ValueOperations<String, String> values = mock(ValueOperations.class);
     private final JwtTokenProvider tokens = spy(new JwtTokenProvider("test-signature-secret-at-least-32-characters", 60_000, 120_000));
-    private final JwtClaimsCacheRepository claims = new JwtClaimsCacheRepository(redis);
     private final MemberRepository members = mock(MemberRepository.class);
-    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tokens, new BlacklistRedisRepository(redis), claims, members);
+    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tokens, new BlacklistRedisRepository(redis), members);
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final MockFilterChain chain = new MockFilterChain();
 
     @BeforeEach
     void setUp() {
-        when(redis.opsForValue()).thenReturn(values);
         when(members.existsByIdAndDeletedFalse(7L)).thenReturn(true);
     }
 
@@ -47,7 +42,7 @@ class JwtRedisFailureTest {
 
     @ParameterizedTest
     @MethodSource("blacklistFailures")
-    void unavailableBlacklistRejectsRequestBeforeUsingCachedClaims(DataAccessException error) throws Exception {
+    void unavailableBlacklistRejectsRequestBeforeAuthentication(DataAccessException error) throws Exception {
         String token = tokens.createAccessToken(7L);
         when(redis.hasKey("blacklist:" + token)).thenThrow(error);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(99L, null, List.of()));
@@ -57,7 +52,7 @@ class JwtRedisFailureTest {
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(chain.getRequest()).isNull();
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
-        verifyNoInteractions(values);
+        verifyNoInteractions(members);
         verify(tokens, never()).getMemberIdFromToken(anyString());
     }
 
@@ -77,11 +72,9 @@ class JwtRedisFailureTest {
     }
 
     @Test
-    void optionalClaimsCacheFailureUsesSignatureAndToleratesCacheWriteFailure() throws Exception {
+    void validAccessTokenUsesSignedMemberIdWithOneParseAndOnlyTheMandatoryRedisCheck() throws Exception {
         String token = tokens.createAccessToken(7L);
-        when(values.get(anyString())).thenThrow(new RedisConnectionFailureException("offline"));
-        doThrow(new RedisConnectionFailureException("offline")).when(values)
-                .set(anyString(), anyString(), anyLong(), eq(TimeUnit.SECONDS));
+        clearInvocations(tokens);
         var request = request(token);
 
         filter.doFilter(request, response, chain);
@@ -91,49 +84,32 @@ class JwtRedisFailureTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo(7L);
         verify(redis).hasKey("blacklist:" + token);
         verify(tokens).getMemberIdFromToken(token);
+        verify(members).existsByIdAndDeletedFalse(7L);
+        verifyNoMoreInteractions(tokens, redis);
     }
 
     @Test
-    void cacheFailureNeverMakesAnInvalidSignatureAuthenticate() throws Exception {
+    void invalidSignatureCannotAuthenticateOrQueryMembers() throws Exception {
         String forged = new JwtTokenProvider("different-signature-secret-at-least-32-characters", 60_000, 120_000).createAccessToken(7L);
-        when(values.get(anyString())).thenThrow(new RedisConnectionFailureException("offline"));
         var request = request(forged);
 
         filter.doFilter(request, response, chain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         assertThat(request.getAttribute("tokenError")).isEqualTo("AUTH_004");
-        verify(values, never()).set(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+        verifyNoInteractions(members);
     }
 
     @Test
-    void malformedClaimsCacheValueFallsBackToSignatureVerification() throws Exception {
-        String token = tokens.createAccessToken(7L);
-        when(values.get(anyString())).thenReturn("broken-value");
-
-        filter.doFilter(request(token), response, chain);
-
-        assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo(7L);
-        verify(tokens).getMemberIdFromToken(token);
-    }
-
-    @Test
-    void revokedTokenCannotUsePreviouslyCachedClaims() throws Exception {
+    void revokedTokenCannotAuthenticateEvenWhenItsSignatureIsValid() throws Exception {
         String token = tokens.createAccessToken(7L);
         when(redis.hasKey("blacklist:" + token)).thenReturn(true);
 
         filter.doFilter(request(token), response, chain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
-        verifyNoInteractions(values);
-    }
-
-    @Test
-    void expiredCacheTtlIsNotWrittenAndOptionalDeletionCanFail() {
-        claims.save("expired-token", 7L, 0);
-        verifyNoInteractions(values);
-        when(redis.delete(anyString())).thenThrow(new RedisConnectionFailureException("offline"));
-        assertThatCode(() -> claims.delete("token")).doesNotThrowAnyException();
+        verifyNoInteractions(members);
+        verify(tokens, never()).getMemberIdFromToken(anyString());
     }
 
     private MockHttpServletRequest request(String token) {
