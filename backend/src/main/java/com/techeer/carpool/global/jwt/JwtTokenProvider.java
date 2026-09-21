@@ -46,10 +46,6 @@ public class JwtTokenProvider {
         }
     }
 
-    public void requireAccessToken(String token) {
-        getClaims(token, "access");
-    }
-
     public Long getMemberIdFromRefreshToken(String token) {
         return memberId(getClaims(token, "refresh"));
     }

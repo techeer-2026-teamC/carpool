@@ -38,7 +38,7 @@ class JwtTokenPurposeIntegrationTest {
     @Container static final GenericContainer<?> redis = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
     final JwtTokenProvider tokens = new JwtTokenProvider(SECRET, 60_000, 120_000);
     LettuceConnectionFactory connection;
-    JwtClaimsCacheRepository claims;
+    StringRedisTemplate strings;
     RefreshTokenRedisRepository refresh;
     TokenReissueService reissue;
     JwtAuthenticationFilter filter;
@@ -48,15 +48,14 @@ class JwtTokenPurposeIntegrationTest {
         connection = new LettuceConnectionFactory(redis.getHost(), redis.getMappedPort(6379));
         connection.afterPropertiesSet();
         connection.start();
-        var strings = new StringRedisTemplate(connection);
-        claims = new JwtClaimsCacheRepository(strings);
+        strings = new StringRedisTemplate(connection);
         refresh = new RefreshTokenRedisRepository(strings);
         MemberRepository members = mock(MemberRepository.class);
         when(members.existsByIdAndDeletedFalse(7L)).thenReturn(true);
         when(members.findActiveByIdWithLock(7L)).thenReturn(java.util.Optional.of(mock(Member.class)));
         reissue = new TokenReissueService(refresh, tokens, members);
         var blacklist = new BlacklistRedisRepository(strings);
-        filter = new JwtAuthenticationFilter(tokens, blacklist, claims, members);
+        filter = new JwtAuthenticationFilter(tokens, blacklist, members);
         sockets = new WebSocketAuthChannelInterceptor(tokens, blacklist, mock(MeetingService.class), members);
     }
 
@@ -115,8 +114,10 @@ class JwtTokenPurposeIntegrationTest {
     }
 
     private void rejectEvenIfCached(String token, String expectedError) throws Exception {
-        claims.save(token, 7L, 60);
-        assertThat(claims.findMemberId(token)).contains(7L);
+        // Old deployment keys can remain until TTL; they must never authorize invalid tokens.
+        String key = "jwt:claims:" + java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(token.getBytes(StandardCharsets.UTF_8)));
+        strings.opsForValue().set(key, "7", java.time.Duration.ofSeconds(60));
         SecurityContextHolder.clearContext();
         assertThat(http(token).getAttribute("tokenError")).isEqualTo(expectedError);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
