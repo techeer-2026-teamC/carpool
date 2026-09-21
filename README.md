@@ -83,7 +83,7 @@ DB 이미지는 위 Compose 빌드로 준비합니다. 테스트는 별도 Postg
 - 워커 업무 API 403, gateway actuator 404 확인
 - [기능 구현을 병합한 main CI](https://github.com/techeer-2026-teamC/carpool/actions/runs/34928324351) 성공. 배포는 실행하지 않음
 
-[실행·관측·검증 상세](https://www.notion.so/3dc226545d1581d09941c0fb137e1423)에 확인한 커밋·범위와 미검증 조건을 기록했습니다. 배포는 main에서 수동 workflow_dispatch와 deploy=true를 선택할 때만 실행됩니다.
+[실행·관측·검증 상세](https://www.notion.so/3dc226545d1581d09941c0fb137e1423)에 확인한 커밋·범위와 미검증 조건을 기록했습니다. 현재 GitHub Actions는 수동 실행을 포함해 빌드·테스트·의존성 검증만 수행합니다. **모아의 운영 배포는 지원하지 않으며**, [배포 재개 조건](docs/deployment-status.md)을 먼저 충족해야 합니다.
 
 ## 문서
 

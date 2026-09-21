@@ -1,9 +1,10 @@
 # =============================================
-# 프로덕션(EC2) 전용 compose
+# 이전 프로덕션(EC2) 참고 compose — 현재 모아 배포 미지원
 # - 모니터링(Prometheus/Grafana) 및 k6 미포함 (prod 경량화)
 # - nginx만 외부 노출(80/443), app/db/redis는 내부 네트워크 전용
-# - 환경변수는 같은 디렉터리의 .env 에서 주입 (CD가 생성)
-# 사용: docker compose -f docker-compose.prod.yml up -d
+# - 환경변수는 같은 디렉터리의 .env 에서 주입
+# 이전 서비스의 참고 구성입니다. PostGIS와 worker가 없어 현재 모아 운영 배포에는 사용할 수 없습니다.
+# 재개 조건: docs/deployment-status.md
 # =============================================
 services:
   nginx:
