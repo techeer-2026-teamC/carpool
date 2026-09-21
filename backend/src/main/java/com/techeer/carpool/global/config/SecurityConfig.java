@@ -1,6 +1,7 @@
 package com.techeer.carpool.global.config;
 
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
 import com.techeer.carpool.global.jwt.JwtAuthenticationFilter;
 import com.techeer.carpool.global.jwt.JwtClaimsCacheRepository;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;
@@ -29,6 +30,7 @@ public class SecurityConfig {
     private final JwtTokenProvider jwtTokenProvider;
     private final BlacklistRedisRepository blacklistRedisRepository;
     private final JwtClaimsCacheRepository jwtClaimsCacheRepository;
+    private final MemberRepository members;
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigin;
@@ -50,6 +52,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC).permitAll()
+                        .requestMatchers("/api/v1/auth/logout").authenticated()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/vehicles/**").permitAll()
                         .requestMatchers("/api/v1/tags").permitAll()
@@ -65,7 +68,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) ->
                                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, blacklistRedisRepository, jwtClaimsCacheRepository),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, blacklistRedisRepository, jwtClaimsCacheRepository, members),
                         UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

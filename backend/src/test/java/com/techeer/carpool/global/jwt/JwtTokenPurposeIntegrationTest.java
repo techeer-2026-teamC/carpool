@@ -3,6 +3,8 @@ package com.techeer.carpool.global.jwt;
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
 import com.techeer.carpool.domain.auth.service.TokenReissueService;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
+import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.domain.meeting.MeetingService;
 import com.techeer.carpool.global.config.WebSocketAuthChannelInterceptor;
 import com.techeer.carpool.global.exception.CarpoolException;
@@ -28,7 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 @Testcontainers
 class JwtTokenPurposeIntegrationTest {
@@ -49,10 +51,13 @@ class JwtTokenPurposeIntegrationTest {
         var strings = new StringRedisTemplate(connection);
         claims = new JwtClaimsCacheRepository(strings);
         refresh = new RefreshTokenRedisRepository(strings);
-        reissue = new TokenReissueService(refresh, tokens);
+        MemberRepository members = mock(MemberRepository.class);
+        when(members.existsByIdAndDeletedFalse(7L)).thenReturn(true);
+        when(members.findActiveByIdWithLock(7L)).thenReturn(java.util.Optional.of(mock(Member.class)));
+        reissue = new TokenReissueService(refresh, tokens, members);
         var blacklist = new BlacklistRedisRepository(strings);
-        filter = new JwtAuthenticationFilter(tokens, blacklist, claims);
-        sockets = new WebSocketAuthChannelInterceptor(tokens, blacklist, mock(MeetingService.class));
+        filter = new JwtAuthenticationFilter(tokens, blacklist, claims, members);
+        sockets = new WebSocketAuthChannelInterceptor(tokens, blacklist, mock(MeetingService.class), members);
     }
 
     @AfterEach void close() {

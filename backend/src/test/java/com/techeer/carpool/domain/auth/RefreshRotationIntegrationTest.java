@@ -2,6 +2,8 @@ package com.techeer.carpool.domain.auth;
 
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
 import com.techeer.carpool.domain.auth.service.TokenReissueService;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
+import com.techeer.carpool.domain.member.entity.Member;
 import com.techeer.carpool.global.exception.CarpoolException;
 import com.techeer.carpool.global.exception.ErrorCode;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;
@@ -30,7 +32,9 @@ class RefreshRotationIntegrationTest {
         connection.afterPropertiesSet();
         connection.start();
         repository = new RefreshTokenRedisRepository(new StringRedisTemplate(connection));
-        service = new TokenReissueService(repository, tokens);
+        MemberRepository members = mock(MemberRepository.class);
+        when(members.findActiveByIdWithLock(anyLong())).thenReturn(java.util.Optional.of(mock(Member.class)));
+        service = new TokenReissueService(repository, tokens, members);
     }
     @AfterEach void close() { connection.destroy(); }
 

@@ -1,6 +1,7 @@
 package com.techeer.carpool.global.jwt;
 
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -24,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
     private final BlacklistRedisRepository blacklistRedisRepository;
     private final JwtClaimsCacheRepository jwtClaimsCacheRepository;
+    private final MemberRepository members;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -46,6 +48,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     memberId = jwtTokenProvider.getMemberIdFromToken(token);
                     long remaining = jwtTokenProvider.getRemainingSeconds(token);
                     jwtClaimsCacheRepository.save(token, memberId, remaining);
+                }
+
+                if (!members.existsByIdAndDeletedFalse(memberId)) {
+                    SecurityContextHolder.clearContext();
+                    request.setAttribute("tokenError", "AUTH_004");
+                    filterChain.doFilter(request, response);
+                    return;
                 }
 
                 UsernamePasswordAuthenticationToken authentication =

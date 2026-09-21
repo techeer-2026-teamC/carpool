@@ -2,6 +2,8 @@ package com.techeer.carpool.global.config;
 
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.meeting.MeetingService;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
+import org.junit.jupiter.api.BeforeEach;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.MessagingException;
@@ -17,7 +19,24 @@ class MeetingSocketSecurityTest {
     final JwtTokenProvider tokens = mock(JwtTokenProvider.class);
     final BlacklistRedisRepository blacklist = mock(BlacklistRedisRepository.class);
     final MeetingService meetings = mock(MeetingService.class);
-    final WebSocketAuthChannelInterceptor interceptor = new WebSocketAuthChannelInterceptor(tokens, blacklist, meetings);
+    final MemberRepository members = mock(MemberRepository.class);
+    final WebSocketAuthChannelInterceptor interceptor = new WebSocketAuthChannelInterceptor(tokens, blacklist, meetings, members);
+
+    @BeforeEach void activeMember() { when(members.existsByIdAndDeletedFalse(7L)).thenReturn(true); }
+
+    @Test void withdrawnMemberCannotConnectSubscribeOrSend() {
+        when(members.existsByIdAndDeletedFalse(7L)).thenReturn(false);
+        when(tokens.validateAccessToken("token")).thenReturn(true);
+        when(tokens.getMemberIdFromToken("token")).thenReturn(7L);
+        var connect = frame(StompCommand.CONNECT, "");
+        connect.setNativeHeader("Authorization", "Bearer token");
+        assertThatThrownBy(() -> send(connect)).isInstanceOf(MessagingException.class);
+        assertThatThrownBy(() -> send(frame(StompCommand.SUBSCRIBE, "/topic/meetings/42/members/7")))
+                .isInstanceOf(MessagingException.class);
+        assertThatThrownBy(() -> send(frame(StompCommand.SEND, "/app/meetings/42/location")))
+                .isInstanceOf(MessagingException.class);
+        verifyNoInteractions(meetings);
+    }
 
     StompHeaderAccessor frame(StompCommand command, String destination) {
         var frame = StompHeaderAccessor.create(command);
