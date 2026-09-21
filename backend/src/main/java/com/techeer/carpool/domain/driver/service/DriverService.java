@@ -20,7 +20,7 @@ public class DriverService {
 
     @Transactional
     public DriverResponse register(Long memberId, DriverRequest request) {
-        memberRepository.findByIdAndDeletedFalse(memberId)
+        memberRepository.findActiveByIdWithLock(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
 
         if (driverRepository.findByMemberIdAndDeletedFalse(memberId).isPresent()) {
