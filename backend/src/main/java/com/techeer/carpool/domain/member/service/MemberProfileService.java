@@ -27,7 +27,7 @@ public class MemberProfileService {
 
     @Transactional
     public ProfileResponse updateProfile(Long memberId, ProfileUpdateRequest request) {
-        Member member = memberRepository.findByIdAndDeletedFalse(memberId)
+        Member member = memberRepository.findActiveByIdWithLock(memberId)
                 .orElseThrow(() -> new CarpoolException(ErrorCode.MEMBER_NOT_FOUND));
 
         if (request.getNickname() != null) {
