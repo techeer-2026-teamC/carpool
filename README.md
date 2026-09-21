@@ -1,195 +1,105 @@
 <div align="center">
 
-# 🚗 같이타 (Carpool) — Backend
+# 🌿 모아 — Backend
 
-**실시간 카풀 매칭 서비스의 백엔드 저장소**
+**카풀·택시 동승의 검색 → 신청·승인 → 만남을 연결하는 서버**
 
-목적지가 같은 사람들을 연결하고, 운행 중 위치를 실시간으로 공유합니다.
+[프로젝트 소개](https://github.com/techeer-2026-teamC) · [Notion 기술 문서](https://www.notion.so/3dc226545d1581feae7fe91dbd0c68dd) · [프론트엔드](https://github.com/techeer-2026-teamC/carpool-front/tree/pr/moa-front-12-docs)
 
-<br>
-
-![Java](https://img.shields.io/badge/Java-17-007396?style=flat-square&logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.4-6DB33F?style=flat-square&logo=springboot&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat-square&logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+Java 17 · Spring Boot 4 · PostgreSQL 15/PostGIS · Redis 7 · Prometheus/Grafana
 
 </div>
 
----
+## 핵심 기능
 
-## 📖 목차
+- **모집·매칭:** 카풀과 택시 동승, 출발지·목적지 반경/시간 검색, 신청·승인·거절·취소
+- **정원 보호:** PostgreSQL 행 락과 DB 제약, 회원 탈퇴와 상태 변경의 잠금 순서
+- **실시간 알림:** 업무 변경·알림·Outbox의 원자적 저장, 워커 발행, Redis Pub/Sub, API별 SSE
+- **만남:** 참가자 만남 확인·불참·완료, 동의한 참가자의 제한된 위치 공유
+- **택시 분담:** 실제 탑승자별 금액과 외부 수금 기록·변경 이력. 앱 내 결제·송금 없음
+- **관측:** API 2개·워커 1개와 PostgreSQL·Redis 지표 수집
 
-- [기술 스택](#-기술-스택)
-- [주요 기능](#-주요-기능)
-- [빠른 시작](#-빠른-시작-quick-start)
-- [프로젝트 구조](#-프로젝트-구조)
-- [API 개요](#-api-개요)
-- [테스트](#-테스트)
-- [부하 테스트 & 모니터링](#-부하-테스트--모니터링)
+카풀은 차량 등록을 검사하고 화면에서 평일 출퇴근을 안내합니다. 요일·시간·공휴일 서버 검증과 운전자 면허·보험 검증은 현재 구현 범위 밖입니다. 법적 운영 조건은 기술 문서에서 별도로 구분합니다.
 
----
+## 실행
 
-## 🛠 기술 스택
-
-| 분류 | 기술 |
-|------|------|
-| **Language** | Java 17 |
-| **Framework** | Spring Boot 4.0.4, Spring Security 7 |
-| **Database** | PostgreSQL 15 (운영) · H2 (테스트) |
-| **Cache / PubSub** | Redis 7 |
-| **Realtime** | WebSocket (STOMP) |
-| **Auth** | JWT (JJWT 0.12.6) · BCrypt |
-| **API Docs** | Swagger (SpringDoc) |
-| **Infra** | Docker Compose |
-| **Monitoring** | Prometheus · Grafana |
-| **Load Test** | k6 |
-
----
-
-## ✨ 주요 기능
-
-- 🔐 **인증** — JWT 기반 로그인 / 회원가입, Refresh Token Rotation (HttpOnly 쿠키)
-- 👤 **회원 · 드라이버** — 프로필 관리, 차량 등록, 평점 시스템
-- 📝 **게시글** — 카풀 모집 CRUD, 태그 필터, 날짜/위치 기반 검색, 자동 마감 스케줄러
-- 🙋 **신청** — 카풀 참여 신청 / 수락 / 거절, 동시성 제어(좌석 초과·중복 방지)
-- 🚘 **운행** — 운행 시작/종료, 탑승/하차 확인, **WebSocket 실시간 위치 공유**
-- ⭐ **리뷰** — 운행 완료 후 드라이버 평가
-- 🔔 **알림** — Redis Pub/Sub 기반 SSE 실시간 알림
-
----
-
-## 🚀 빠른 시작 (Quick Start)
-
-### 1️⃣ 환경 변수 설정
-
-루트에 `.env` 파일을 생성합니다. (`.env.sample` 참고)
+Docker Compose와 Node.js 22를 준비합니다. 백엔드 테스트에는 JDK 17이 필요합니다.
 
 ```bash
-cp .env.sample .env
+docker compose -f docker-compose.moa.yml --profile monitoring up -d --build
 ```
 
-```env
-JWT_SECRET=local-dev-secret-key-please-change-in-production
-DOCKER_USERNAME=local
-# Google OAuth2 (소셜 로그인 사용 시 — 팀 단톡방 자격증명 참고)
-GOOGLE_CLIENT_ID=your_google_client_id_here
-GOOGLE_CLIENT_SECRET=your_google_client_secret_here
-```
+| 서비스 | 로컬 주소 |
+| --- | --- |
+| API gateway | http://localhost:18080 |
+| API 1 / API 2 | localhost:18081 / localhost:18082 |
+| Swagger UI | http://localhost:18080/swagger-ui/index.html |
+| OpenAPI | http://localhost:18080/v3/api-docs |
+| PostgreSQL / Redis | localhost:15432 / localhost:16379 |
+| Prometheus | http://localhost:19090 |
+| Grafana | http://localhost:13000 |
 
-### 2️⃣ 실행
+Compose의 비밀번호·JWT 값은 로컬 예제입니다. 전용 빈 DB에서 Flyway를 시작하며 기존 운영 DB에 자동 baseline하지 않습니다. JVM·DB 연결 시간대는 Asia/Seoul입니다.
+
+프론트는 누적 구현이 있는 `pr/moa-front-12-docs` 브랜치에서 `npm ci && npm run dev`로 실행합니다. CORS origin은 `http://localhost:5173`입니다. 신규 UI는 구형 mock API·자동 생성 테스트 계정을 전제로 하지 않습니다.
+
+[상세 실행·중지·테스트 안내](docs/moa-local.md)
+
+## 코드 탐색
+
+| 도메인 | 소유하는 책임 |
+| --- | --- |
+| `auth`, `member`, `driver` | 인증·회원·차량 등록 |
+| `post` | 모집 상태·정원·태그·예약 마감·예정 목록 캐시 |
+| `discovery` | PostGIS 조건 검색과 커서 페이지 |
+| `application` | 신청 상태 전이와 정원 변경 |
+| `notification` | DB 알림함·Outbox·워커·Pub/Sub·SSE 수명 |
+| `meeting` | 만남 확인·완료, 별도 위치 동의·조회·STOMP |
+| `expense` | 택시 분담금과 외부 수금·감사 기록 |
+| `ride`, `review`, `comment` | 보존된 운행·평가·댓글 기능 |
+| `global` | 인증 필터·설정·오류 응답·업무 지표 |
+
+새 흐름은 검색과 참가 확정이 중심입니다. 레거시 운행은 `app.legacy-ride.enabled=false`로 기본 비활성화했습니다. 설정을 켜는 것만으로 구형 WebSocket의 인증·라우팅까지 복구되는 것은 아닙니다. 만남 위치 STOMP는 독립 모듈로 유지합니다.
+
+## 기술 선택과 한계
+
+- **PostGIS:** 공간 조건과 모집 상태·시간·잔여석을 같은 DB에서 검사합니다. Redis GEO도 공간 검색을 지원하지만 별도 인덱스 동기화가 필요하므로 이번 기본 검색에는 추가하지 않았습니다.
+- **Redis 캐시:** 예정 모집 목록만 5분 TTL로 공유합니다. 신규 discovery 검색에는 응답 캐시가 없습니다. 승인·취소·자동 마감 반영은 목록 TTL까지 늦을 수 있으며, 좌석 확정은 DB를 다시 검사합니다.
+- **DB 락:** API 프로세스가 여러 개여도 공유 DB 행을 잠가 정원 상태를 직렬화합니다. 낙관적 락·조건부 UPDATE·Redis 분산 락과의 성능 순위는 측정하지 않았습니다.
+- **알림 복구:** Pub/Sub 누락은 DB 알림함 조회로 보정하고, Outbox 재발행 중복은 알림 ID로 구분합니다. 발행 성공은 브라우저 수신 완료가 아닙니다.
+- **SSE 수명:** 완료·오류·타임아웃 시 보관소 참조와 대기 큐·할당량을 한 번만 정리합니다. 프로세스별 연결·전송 큐 상한을 둡니다.
+- **운영 범위:** API 2개 구성은 확인했지만 PostgreSQL·Redis·gateway는 단일 노드입니다. DAU 10만 처리량과 전체 고가용성을 검증한 배포 구성이 아닙니다.
+
+## 검증
 
 ```bash
-# DB · Redis · 앱 전체 기동
-docker-compose up -d
-
-# 모니터링 스택까지 함께 기동하려면
-docker-compose --profile monitoring up -d
+MOA_POSTGIS_IMAGE=moa-postgis:15 REDIS_PORT=16379 ./backend/gradlew -p backend test
 ```
 
-| 서비스 | 주소 |
-|--------|------|
-| 🌐 API | http://localhost:8080 |
-| 📚 Swagger | http://localhost:8080/swagger-ui.html |
-| 📊 Grafana | http://localhost:3000 (admin / admin) |
-| 📈 Prometheus | http://localhost:9090 |
+DB 이미지는 위 Compose 빌드로 준비합니다. 테스트는 별도 PostgreSQL/PostGIS·Redis 컨테이너를 사용하고, 기존 인증 테스트는 로컬 Redis도 필요합니다.
 
-> **로컬 프로파일**에서 앱 실행 시 테스트 계정이 자동 생성됩니다.
-> - 드라이버: `test@carpool.com` / `password1234`
-> - 승객: `admin@carpool.com` / `admin1234!`
+- 백엔드 **159개 테스트 통과**, API1/API2/gateway의 SSE에서 동일 알림 ID 수신과 DB 알림함 대조
+- Prometheus **6개 타깃 UP**, Grafana 모아 개요 대시보드 **10개 패널**과 datasource 응답 확인
+- 워커 업무 API 403, gateway actuator 404 확인
+- [기능 구현을 병합한 main CI](https://github.com/techeer-2026-teamC/carpool/actions/runs/34928324351) 성공. 배포는 실행하지 않음
 
----
+[실행·관측·검증 상세](https://www.notion.so/3dc226545d1581d09941c0fb137e1423)에 확인한 커밋·범위와 미검증 조건을 기록했습니다. 배포는 main에서 수동 workflow_dispatch와 deploy=true를 선택할 때만 실행됩니다.
 
-## 📂 프로젝트 구조
+## 문서
 
-```
-Backend/
-├── backend/                    # Spring Boot 애플리케이션
-│   ├── src/main/java/com/techeer/carpool/
-│   │   ├── domain/             # 도메인별 패키지
-│   │   │   ├── auth/           #   인증 (JWT, 로그인)
-│   │   │   ├── member/         #   회원
-│   │   │   ├── driver/         #   드라이버 · 차량
-│   │   │   ├── post/           #   게시글 · 태그
-│   │   │   ├── application/    #   카풀 신청
-│   │   │   ├── ride/           #   운행 · 실시간 위치
-│   │   │   ├── review/         #   리뷰 · 평점
-│   │   │   └── notification/   #   알림 (Redis Pub/Sub + SSE)
-│   │   └── global/             # 공통 (config, jwt, exception, metrics)
-│   └── Dockerfile
-├── k6/                         # 부하 테스트 시나리오
-│   ├── scenarios/              #   01~07 시나리오
-│   └── utils/                  #   auth · data · checks 헬퍼
-├── grafana/                    # Grafana 프로비저닝
-├── docker-compose.yml
-├── prometheus.yml
-└── .env.sample
-```
+| 읽는 목적 | 문서 |
+| --- | --- |
+| 전체 문서 탐색 | [Notion 백엔드 문서](https://www.notion.so/3dc226545d1581feae7fe91dbd0c68dd) |
+| 도메인과 코드 책임 | [도메인 지도](https://www.notion.so/3dc226545d1581d8884be3d69a27fbd0) · [핵심 객체·함수](https://www.notion.so/3dc226545d1581f48898f6a88cad1e85) |
+| API 요청·응답·오류 | [공통·인증](https://www.notion.so/3dc226545d1581a4beeffdcf1a01f969) · [모집·신청](https://www.notion.so/3dc226545d1581ee98fffb1c4f67fdfd) · [알림·만남·분담](https://www.notion.so/3dc226545d1581d78a5cf37bc41dcfeb) · [레거시](https://www.notion.so/3dc226545d15812e8c05d811f2779bc6) |
+| 테이블·제약·인덱스 | [ERD와 데이터 사전](https://www.notion.so/3dc226545d15811c984cd7cd09d107de) |
+| 프로세스와 관측 연결 | [Figma 시스템 아키텍처](https://www.figma.com/board/TRGHDXwe8ThtE5dQviUPCG) |
+| 요청부터 알림 복구까지 | [서버 동작 흐름](https://www.notion.so/3dc226545d158187adedef9de21d6696) |
+| 분산 락을 추가하지 않은 이유 | [정원 동시성과 Redis 락의 고려사항](https://www.notion.so/3dc226545d1581bba794f3df8255c9ba) |
+| PostGIS와 Redis GEO 비교 | [공간 검색 설계](https://www.notion.so/3dc226545d15816ca2fdd5ba33d57d00) |
+| SSE와 Pub/Sub 복구 범위 | [실시간 알림 설계](https://www.notion.so/3dc226545d158107a86efde7804574c8) |
+| 향후 측정 조건 | [새 부하 테스트 실행 계획](https://www.notion.so/3dc226545d1581ddbd30ff7479185476) |
+| 운영 전 법적 검토 | [현재 구현과 운영 조건](https://www.notion.so/3e2226545d1581278778ec9a770bc75f) · [법령·타사 참고](https://www.notion.so/3e2226545d1581c8be9ff377bf83028a) |
+| 이력서에 사용할 근거 | [기술 경험 3가지와 증거의 범위](https://www.notion.so/3e2226545d15819d806ecdde0673529e) |
 
----
-
-## 🔌 API 개요
-
-| 도메인 | 대표 엔드포인트 |
-|--------|----------------|
-| **Auth** | `POST /api/v1/auth/signup` · `login` · `refresh` · `logout` |
-| **Member** | `GET /api/v1/members/me` · 프로필 수정 · 탈퇴 |
-| **Driver** | `POST /api/v1/drivers` · `GET /drivers/me` · 차량 색상 목록 |
-| **Post** | `GET·POST /api/v1/posts` · 단건 조회 · 수정 · 삭제 · 마감 |
-| **Application** | `POST /api/v1/posts/{id}/applications` · 수락 / 거절 |
-| **Ride** | `POST /api/v1/rides` · 시작 · 종료 · 탑승 · 하차 · 위치 |
-| **Review** | `POST /api/v1/reviews/rides/{id}` · 드라이버 평점 |
-| **WebSocket** | `/ws` · `/app/ride/{id}/location` · `/topic/ride/{id}` |
-
-> 전체 명세는 [Swagger UI](http://localhost:8080/swagger-ui.html)에서 확인하세요.
-
----
-
-## 🧪 테스트
-
-```bash
-cd backend
-./gradlew test            # 전체 통합 테스트 (H2 인메모리)
-./gradlew test --tests "com.techeer.carpool.domain.post.*"   # 특정 도메인
-```
-
-테스트 리포트: `backend/build/reports/tests/test/index.html`
-
----
-
-## 📊 부하 테스트 & 모니터링
-
-[k6](https://k6.io)로 시나리오별 부하 테스트를 수행합니다.
-
-```bash
-# 인증 흐름
-k6 run k6/scenarios/01_auth_flow.js
-
-# 운행 위치 부하 (SCALE 조정 가능)
-k6 run -e SCALE=100 k6/scenarios/06_ride_location_load.js
-
-# 🎬 운행 데모 (브라우저에서 실시간 위치 시각 확인)
-k6 run k6/scenarios/07_ride_demo_scenario.js
-```
-
-### 🎬 운행 데모 시나리오 (`07_ride_demo_scenario.js`)
-
-브라우저 2탭(드라이버 / 승객)을 열어두고 실행하면, **출발 전 집결 → 탑승 → 이동 → 하차** 전 과정을 지도에서 실시간으로 확인할 수 있습니다.
-
-```
-PHASE 1  위치 공유 시작     드라이버 + 승객 3명 마커 표시
-PHASE 2  출발점 집결        승객들이 출발점으로 동시 이동
-PHASE 3  운행 시작 + 탑승    한 명씩 탑승 확인
-PHASE 4  목적지 이동         실제 도로 경로 따라 🚗 이동
-PHASE 5  하차 + 종료         평가하기 버튼 노출
-```
-
-> 테스트 시 브라우저 콘솔에서 `localStorage.setItem('rideTestMode','1')` 후 새로고침하면 GPS 대신 시나리오 좌표가 사용됩니다.
-
----
-
-<div align="center">
-
-**Techeer 2026 Team-C**
-
-</div>
+**이번 작업에서는 부하 테스트를 실행하지 않았습니다.** 기존 `k6/` 실험 스크립트는 현재 모아 기능과 자동으로 호환되는 실행 안내가 아닙니다. 이력서의 과거 SSE 실험과 신규 구현의 기능 검증을 구분합니다.
