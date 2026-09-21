@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -193,8 +195,8 @@ class AuthIntegrationTest {
                 .nickname("유저").build());
 
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getId());
-        when(refreshTokenRedisRepository.findByMemberId(member.getId()))
-                .thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRedisRepository.rotate(eq(member.getId()), eq(refreshToken), anyString()))
+                .thenReturn(true);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .cookie(new Cookie("refreshToken", refreshToken)))

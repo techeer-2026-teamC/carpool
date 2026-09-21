@@ -22,18 +22,13 @@ public class TokenReissueService {
 
         Long memberId = jwtTokenProvider.getMemberIdFromRefreshToken(refreshTokenValue);
 
-        String stored = refreshTokenRedisRepository.findByMemberId(memberId)
-                .orElseThrow(() -> new CarpoolException(ErrorCode.INVALID_TOKEN));
-
-        // Redis에 저장된 값과 다르면 토큰 탈취 후 재사용 시도로 판단
-        if (!stored.equals(refreshTokenValue)) {
-            throw new CarpoolException(ErrorCode.INVALID_TOKEN);
-        }
-
         String newAccessToken = jwtTokenProvider.createAccessToken(memberId);
         String newRefreshToken = jwtTokenProvider.createRefreshToken(memberId);
 
-        refreshTokenRedisRepository.save(memberId, newRefreshToken);
+        // Compare and replace together: a used or deleted token cannot restore a session.
+        if (!refreshTokenRedisRepository.rotate(memberId, refreshTokenValue, newRefreshToken)) {
+            throw new CarpoolException(ErrorCode.INVALID_TOKEN);
+        }
 
         return new AuthTokens(newAccessToken, newRefreshToken);
     }
