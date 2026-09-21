@@ -36,8 +36,12 @@ public class MeetingController {
         return ApiResponse.of("최근 위치", locations.get(postId, (Long) auth.getPrincipal()));
     }
     @DeleteMapping("/locations/me")
-    public ApiResponse<Void> stop(@PathVariable Long postId, Authentication auth) {
-        locations.stop(postId, (Long) auth.getPrincipal());
+    public ApiResponse<Void> stop(@PathVariable Long postId, @RequestParam String generation, Authentication auth) {
+        locations.stop(postId, (Long) auth.getPrincipal(), generation);
         return ApiResponse.of("위치 공유 중지");
+    }
+    @PostMapping("/locations/me")
+    public ApiResponse<MeetingLocations.Sharing> start(@PathVariable Long postId, Authentication auth) {
+        return ApiResponse.of("위치 공유 시작", locations.start(postId, (Long) auth.getPrincipal()));
     }
 }

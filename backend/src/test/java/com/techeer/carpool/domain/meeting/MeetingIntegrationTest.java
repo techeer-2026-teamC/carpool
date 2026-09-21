@@ -75,13 +75,14 @@ class MeetingIntegrationTest {
     @EntityScan(basePackageClasses = {Post.class, Member.class, Application.class, Notification.class})
     @EnableJpaRepositories(basePackageClasses = {PostRepository.class, MemberRepository.class,
             ApplicationRepository.class, NotificationRepository.class})
-    @Import({MeetingService.class, MeetingLocations.class, ApplicationStatusService.class, CarpoolMetrics.class})
+    @Import({MeetingService.class, MeetingLocations.class, MeetingLocationStore.class, ApplicationStatusService.class, CarpoolMetrics.class})
     static class Config {
         @Bean ObjectMapper objectMapper() { return new ObjectMapper(); }
         @Bean MeterRegistry meters() { return new SimpleMeterRegistry(); }
     }
     @Autowired MeetingService meetings;
     @Autowired MeetingLocations locations;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean MeetingLocationStore store;
     @org.springframework.test.context.bean.override.mockito.MockitoBean NotificationService notifications;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.techeer.carpool.domain.notification.publisher.RedisNotificationPublisher publisher;
     @Autowired ApplicationStatusService applicationStatus;
@@ -92,6 +93,7 @@ class MeetingIntegrationTest {
     @Autowired StringRedisTemplate strings;
     @Autowired JdbcTemplate jdbc;
     long host, first, second, outsider, postId, firstApplication;
+    java.util.Map<Long,String> generations = new java.util.HashMap<>();
 
     @BeforeEach void participants() {
         host = member(); first = member(); second = member(); outsider = member();
@@ -146,17 +148,17 @@ class MeetingIntegrationTest {
 
     @Test void coordinatesAreExplicitEphemeralAndLimitedToHostAndSelf() {
         assertThat(locations.get(postId, host)).isEmpty();
-        assertError(() -> locations.update(postId, outsider, 37.5, 127.0), ErrorCode.MEETING_FORBIDDEN);
-        locations.update(postId, host, 37.5, 127.0);
-        locations.update(postId, first, 37.51, 127.01);
-        locations.update(postId, second, 37.52, 127.02);
+        assertError(() -> locations.update(postId, outsider, 37.5, 127.0, UUID.randomUUID().toString()), ErrorCode.MEETING_FORBIDDEN);
+        share(host, 37.5, 127.0);
+        share(first, 37.51, 127.01);
+        share(second, 37.52, 127.02);
         assertThat(locations.get(postId, host)).extracting(MeetingLocations.Position::memberId)
                 .containsExactlyInAnyOrder(host, first, second);
         assertThat(locations.get(postId, first)).extracting(MeetingLocations.Position::memberId)
                 .containsExactlyInAnyOrder(host, first);
         String firstKey = "moa:meeting:"+postId+":member:"+first;
         assertThat(strings.getExpire(firstKey, TimeUnit.SECONDS)).isBetween(55L,60L);
-        locations.stop(postId, first);
+        locations.stop(postId, first, generations.get(first));
         assertThat(locations.get(postId, first)).extracting(MeetingLocations.Position::memberId).containsExactly(host);
         String secondKey = "moa:meeting:"+postId+":member:"+second;
         strings.expire(secondKey, Duration.ofMillis(20));
@@ -166,7 +168,7 @@ class MeetingIntegrationTest {
 
     @Test void cancelledParticipantLosesLocationAccessAndAttendance() {
         meetings.mark(postId, first, "MET", host);
-        locations.update(postId, first, 37.5, 127.0);
+        share(first, 37.5, 127.0);
         applicationStatus.cancel(firstApplication, first);
         assertError(() -> meetings.get(postId, first), ErrorCode.MEETING_FORBIDDEN);
         assertError(() -> locations.get(postId, first), ErrorCode.MEETING_FORBIDDEN);
@@ -179,14 +181,14 @@ class MeetingIntegrationTest {
         var json = new ObjectMapper();
         var messages = org.mockito.Mockito.mock(org.springframework.messaging.simp.SimpMessagingTemplate.class);
         var fanout = new MeetingSocket.Fanout(json, meetings, messages, locations);
-        locations.update(postId, first, 37.5, 127.0);
+        share(first, 37.5, 127.0);
         var position = locations.get(postId, first).get(0);
         byte[] payload = json.writeValueAsBytes(position);
         var message = new org.springframework.data.redis.connection.DefaultMessage(MeetingLocations.CHANNEL.getBytes(), payload);
         fanout.onMessage(message, null);
         org.mockito.Mockito.verify(messages).convertAndSend("/topic/meetings/"+postId+"/members/"+host, position);
         org.mockito.Mockito.clearInvocations(messages);
-        locations.stop(postId, first);
+        locations.stop(postId, first, generations.get(first));
         fanout.onMessage(message, null);
         String key = "moa:meeting:"+postId+":member:"+first;
         var newer = new MeetingLocations.Position(postId, first, 37.51, 127.01, java.time.Instant.now().toString());
@@ -196,6 +198,92 @@ class MeetingIntegrationTest {
         await().atMost(2,TimeUnit.SECONDS).until(() -> !Boolean.TRUE.equals(strings.hasKey(key)));
         fanout.onMessage(message, null);
         org.mockito.Mockito.verifyNoInteractions(messages);
+    }
+
+    String share(long member, double latitude, double longitude) {
+        String generation = locations.start(postId, member).generation();
+        generations.put(member, generation);
+        locations.update(postId, member, latitude, longitude, generation);
+        return generation;
+    }
+
+    @Test void stoppedGenerationCannotWriteAfterAnAlreadyAuthorizedUpdateResumes() throws Exception {
+        String generation = locations.start(postId, first).generation();
+        var authorized = new java.util.concurrent.CountDownLatch(1);
+        var resume = new java.util.concurrent.CountDownLatch(1);
+        org.mockito.Mockito.doAnswer(call -> {
+            authorized.countDown();
+            assertThat(resume.await(10, TimeUnit.SECONDS)).isTrue();
+            return call.callRealMethod();
+        }).when(store).update(org.mockito.ArgumentMatchers.eq(postId), org.mockito.ArgumentMatchers.eq(first),
+                org.mockito.ArgumentMatchers.eq(generation), org.mockito.ArgumentMatchers.anyString());
+        var executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            var update = executor.submit(() -> locations.update(postId, first, 37.5, 127.0, generation));
+            assertThat(authorized.await(10, TimeUnit.SECONDS)).isTrue();
+            locations.stop(postId, first, generation);
+            resume.countDown();
+            update.get(10, TimeUnit.SECONDS);
+            assertThat(locations.get(postId, host)).isEmpty();
+            assertThat(strings.hasKey("moa:meeting:"+postId+":member:"+first+":rate")).isFalse();
+        } finally { resume.countDown(); executor.shutdownNow(); }
+    }
+
+    @Test void oldStopsAndUpdatesCannotAlterRestartedSharing() {
+        String old = share(first, 37.5, 127.0);
+        String current = share(first, 37.6, 127.1);
+        assertThat(current).isNotEqualTo(old);
+        locations.stop(postId, first, old);
+        locations.update(postId, first, 38.0, 128.0, old);
+        assertThat(locations.get(postId, host)).singleElement()
+                .extracting(MeetingLocations.Position::latitude).isEqualTo(37.6);
+        locations.stop(postId, first, current);
+        assertThat(locations.get(postId, host)).isEmpty();
+    }
+
+    @Test void cancellationAndReacceptanceRequireFreshSharingConsent() {
+        String old = share(first, 37.5, 127.0);
+        applicationStatus.cancelAccept(firstApplication, host);
+        assertThat(store.get(postId, first)).isNull();
+        applicationStatus.accept(firstApplication, host);
+        locations.update(postId, first, 37.6, 127.1, old);
+        assertThat(locations.get(postId, host)).isEmpty();
+        share(first, 37.7, 127.2);
+        assertThat(locations.get(postId, host)).hasSize(1);
+    }
+
+    @Test void startCannotRecreateSharingBetweenRevocationAndCancellationCommit() throws Exception {
+        share(first, 37.5, 127.0);
+        var revoked = new java.util.concurrent.CountDownLatch(1);
+        var commit = new java.util.concurrent.CountDownLatch(1);
+        org.mockito.Mockito.doAnswer(call -> {
+            Object result = call.callRealMethod();
+            revoked.countDown();
+            assertThat(commit.await(10, TimeUnit.SECONDS)).isTrue();
+            return result;
+        }).when(store).revoke(postId, first);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var cancellation = executor.submit(() -> applicationStatus.cancelAccept(firstApplication, host));
+            assertThat(revoked.await(10, TimeUnit.SECONDS)).isTrue();
+            var start = executor.submit(() -> locations.start(postId, first));
+            await().atMost(5, TimeUnit.SECONDS).until(() -> jdbc.queryForObject(
+                    "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'", Long.class) > 0);
+            commit.countDown();
+            cancellation.get(10, TimeUnit.SECONDS);
+            assertThatThrownBy(() -> start.get(10, TimeUnit.SECONDS)).hasCauseInstanceOf(CarpoolException.class);
+            assertThat(strings.hasKey("moa:meeting:"+postId+":member:"+first+":session")).isFalse();
+        } finally { commit.countDown(); executor.shutdownNow(); }
+    }
+
+    @Test void failedRevocationRollsBackMembershipCancellation() {
+        share(first, 37.5, 127.0);
+        org.mockito.Mockito.doThrow(new org.springframework.data.redis.RedisConnectionFailureException("unavailable"))
+                .when(store).revoke(postId, first);
+        assertThatThrownBy(() -> applicationStatus.cancelAccept(firstApplication, host))
+                .isInstanceOf(org.springframework.data.redis.RedisConnectionFailureException.class);
+        assertThat(applications.findById(firstApplication).orElseThrow().getStatus()).isEqualTo(ApplicationStatus.ACCEPTED);
+        assertThat(meetings.get(postId, first).participants()).hasSize(3);
     }
 
     private void assertError(Runnable action, ErrorCode code) {
