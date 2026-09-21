@@ -1,6 +1,7 @@
 package com.techeer.carpool.global.jwt;
 
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,12 +31,16 @@ class JwtRedisFailureTest {
     private final ValueOperations<String, String> values = mock(ValueOperations.class);
     private final JwtTokenProvider tokens = spy(new JwtTokenProvider("test-signature-secret-at-least-32-characters", 60_000, 120_000));
     private final JwtClaimsCacheRepository claims = new JwtClaimsCacheRepository(redis);
-    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tokens, new BlacklistRedisRepository(redis), claims);
+    private final MemberRepository members = mock(MemberRepository.class);
+    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tokens, new BlacklistRedisRepository(redis), claims, members);
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final MockFilterChain chain = new MockFilterChain();
 
     @BeforeEach
-    void setUp() { when(redis.opsForValue()).thenReturn(values); }
+    void setUp() {
+        when(redis.opsForValue()).thenReturn(values);
+        when(members.existsByIdAndDeletedFalse(7L)).thenReturn(true);
+    }
 
     @AfterEach
     void cleanUp() { SecurityContextHolder.clearContext(); }
@@ -54,6 +59,16 @@ class JwtRedisFailureTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verifyNoInteractions(values);
         verify(tokens, never()).getMemberIdFromToken(anyString());
+    }
+
+    @Test
+    void memberLookupFailureRejectsRequestAndClearsAuthentication() throws Exception {
+        when(members.existsByIdAndDeletedFalse(7L)).thenThrow(new QueryTimeoutException("unavailable"));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(99L, null, List.of()));
+        filter.doFilter(request(tokens.createAccessToken(7L)), response, chain);
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(chain.getRequest()).isNull();
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
     static Stream<DataAccessException> blacklistFailures() {

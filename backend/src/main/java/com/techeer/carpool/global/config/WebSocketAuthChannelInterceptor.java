@@ -2,6 +2,7 @@ package com.techeer.carpool.global.config;
 
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.meeting.MeetingService;
+import com.techeer.carpool.domain.member.repository.MemberRepository;
 import com.techeer.carpool.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.*;
@@ -17,6 +18,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
     private final JwtTokenProvider tokens;
     private final BlacklistRedisRepository blacklist;
     private final MeetingService meetings;
+    private final MemberRepository members;
     private static final Pattern SUB = Pattern.compile("/topic/meetings/(\\d+)/members/(\\d+)");
     private static final Pattern SEND = Pattern.compile("/app/meetings/(\\d+)/location");
 
@@ -30,6 +32,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
             String token=header.substring(7);
             if(!tokens.validateAccessToken(token) || blacklist.isBlacklisted(token)) throw new MessagingException("Invalid authentication");
             Long id=tokens.getMemberIdFromToken(token);
+            if (!members.existsByIdAndDeletedFalse(id)) throw new MessagingException("Invalid authentication");
             a.setUser(()->id.toString());
             a.getSessionAttributes().put("authExpiresAt", Instant.now().plusSeconds(tokens.getRemainingSeconds(token)));
             a.getSessionAttributes().put("authToken",token);
@@ -39,6 +42,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                     || blacklist.isBlacklisted((String)a.getSessionAttributes().get("authToken")))
                 throw new MessagingException("Authentication expired");
             Long requester=Long.valueOf(a.getUser().getName());
+            if (!members.existsByIdAndDeletedFalse(requester)) throw new MessagingException("Invalid authentication");
             String destination=a.getDestination();
             var matcher=(a.getCommand()==StompCommand.SUBSCRIBE?SUB:SEND).matcher(destination==null?"":destination);
             if(!matcher.matches()) throw new MessagingException("Destination not allowed");

@@ -16,6 +16,12 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     Optional<Member> findByIdAndDeletedFalse(Long id);
 
+    boolean existsByIdAndDeletedFalse(Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Member m where m.email = :email and m.deleted = false")
+    Optional<Member> findActiveByEmailWithLock(String email);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Member m where m.id = :id and m.deleted = false")
     Optional<Member> findActiveByIdWithLock(Long id);
