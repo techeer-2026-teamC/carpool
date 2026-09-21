@@ -16,9 +16,11 @@ import java.util.List;
 public class PostCreateRequest {
 
     @NotBlank(message = "제목은 필수입니다.")
+    @Size(max = 100, message = "제목은 100자 이하여야 합니다.")
     private String title;
 
     @NotBlank(message = "출발지는 필수입니다.")
+    @Size(max = 100, message = "출발지는 100자 이하여야 합니다.")
     private String departureLocation;
 
     @NotNull
@@ -31,6 +33,7 @@ public class PostCreateRequest {
     private Double departureLng;
 
     @NotBlank(message = "목적지는 필수입니다.")
+    @Size(max = 100, message = "목적지는 100자 이하여야 합니다.")
     private String destinationLocation;
 
     @NotNull

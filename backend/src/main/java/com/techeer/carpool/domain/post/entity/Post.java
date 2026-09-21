@@ -210,7 +210,7 @@ public class Post extends SoftDeletableEntity {
         if (command.maxPassengers() > 0) this.maxPassengers = command.maxPassengers();
         if (command.description() != null) this.description = command.description();
         if (command.status() == PostStatus.CLOSED) close();
-        if (command.price() != null) this.price = command.price();
+        this.price = command.price();
         this.autoAccept = false;
         refreshCapacityStatus();
         if (command.tags() != null) {
