@@ -7,7 +7,9 @@ import com.techeer.carpool.domain.application.service.ApplicationStatusService;
 import com.techeer.carpool.domain.auth.repository.BlacklistRedisRepository;
 import com.techeer.carpool.domain.auth.repository.RefreshTokenRedisRepository;
 import com.techeer.carpool.domain.member.entity.Member;
+import com.techeer.carpool.domain.member.dto.ProfileUpdateRequest;
 import com.techeer.carpool.domain.member.repository.MemberRepository;
+import com.techeer.carpool.domain.member.service.MemberProfileService;
 import com.techeer.carpool.domain.member.service.MemberWithdrawService;
 import com.techeer.carpool.domain.post.dto.PostCreateRequest;
 import com.techeer.carpool.domain.post.entity.Post;
@@ -60,6 +62,7 @@ class MemberLifecycleIntegrationTest {
     @Autowired ApplicationCreateService create;
     @Autowired ApplicationStatusService decisions;
     @Autowired MemberWithdrawService withdrawal;
+    @Autowired MemberProfileService profiles;
     @Autowired MemberRepository members;
     @Autowired PostRepository posts;
     @Autowired PostService postService;
@@ -129,6 +132,26 @@ class MemberLifecycleIntegrationTest {
     @Test void futureOwnedRecruitmentStillBlocksWithdrawal() {
         assertError(() -> withdrawal.withdraw(host, null), ErrorCode.MEMBER_ACTIVE_RECRUITMENT);
         assertThat(members.findById(host).orElseThrow().isDeleted()).isFalse();
+    }
+
+    @Test void withdrawalWinningMemberLockRejectsConcurrentProfileChange() throws Exception {
+        long memberId = member();
+        ProfileUpdateRequest request = json.readValue("{\"nickname\":\"변경 이름\"}", ProfileUpdateRequest.class);
+        raceWithHeldTransaction(() -> withdrawal.withdraw(memberId, null),
+                () -> assertError(() -> profiles.updateProfile(memberId, request), ErrorCode.MEMBER_NOT_FOUND));
+        Member result = members.findById(memberId).orElseThrow();
+        assertThat(result.isDeleted()).isTrue();
+        assertThat(result.getNickname()).isEqualTo("참가자");
+    }
+
+    @Test void profileChangeWinningMemberLockCannotUndoSubsequentWithdrawal() throws Exception {
+        long memberId = member();
+        ProfileUpdateRequest request = json.readValue("{\"nickname\":\"변경 이름\"}", ProfileUpdateRequest.class);
+        raceWithHeldTransaction(() -> profiles.updateProfile(memberId, request),
+                () -> withdrawal.withdraw(memberId, null));
+        Member result = members.findById(memberId).orElseThrow();
+        assertThat(result.isDeleted()).isTrue();
+        assertThat(result.getNickname()).isEqualTo("변경 이름");
     }
 
     @Test void withdrawnRejectedMemberCannotBeRestoredToPending() {
