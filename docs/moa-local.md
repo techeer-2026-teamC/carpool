@@ -19,11 +19,12 @@ docker compose -f docker-compose.moa.yml up -d --build
 - Redis: localhost:16379
 - Compose의 계정과 비밀번호는 로컬 검증용입니다.
 - DB 마이그레이션은 빈 전용 데이터베이스에서 시작합니다. 기존 운영 DB에 baseline을 자동 적용하지 않습니다.
+- Flyway V1–V8을 적용합니다. V8은 회원당 활성 운전자 하나를 보장하며 기존 중복이 있으면 데이터를 지우지 않고 중단합니다. [사전 점검·정리 절차](migrations/V8-active-driver.md)를 확인합니다.
 - JVM과 각 DB 연결은 Asia/Seoul을 사용합니다.
 
 ## 모니터링
 
-관측 구성 PR 적용 후 다음 명령으로 함께 시작합니다.
+다음 명령으로 관측 구성을 함께 시작합니다.
 
 ```sh
 docker compose -f docker-compose.moa.yml --profile monitoring up -d --build

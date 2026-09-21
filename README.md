@@ -78,10 +78,21 @@ MOA_POSTGIS_IMAGE=moa-postgis:15 REDIS_PORT=16379 ./backend/gradlew -p backend t
 
 DB 이미지는 위 Compose 빌드로 준비합니다. 테스트는 별도 PostgreSQL/PostGIS·Redis 컨테이너를 사용하고, 기존 인증 테스트는 로컬 Redis도 필요합니다.
 
-- 백엔드 **159개 테스트 통과**, API1/API2/gateway의 SSE에서 동일 알림 ID 수신과 DB 알림함 대조
+### 2026-09-21 — 수정 검증과 main 반영
+
+- 백엔드 **186개 테스트 통과**, 실패·오류·skip 0. PostgreSQL/PostGIS·Redis 통합 검증과 `build`·`bootJar` 생성 성공
+- 수정 PR #162–#169를 `main@a334837`에 병합했습니다. 전체 파일 트리가 통합 검증본 `verify/moa-review-fixes@0ad6cac`와 동일함을 확인했습니다.
+- [main@a334837 CI](https://github.com/techeer-2026-teamC/carpool/actions/runs/35563997538)의 빌드·의존성 제출이 성공했습니다. 현재 workflow에는 배포 작업이 없습니다.
+- 프로필·탈퇴 경합, Refresh 토큰 원자적 교체, 위치 공유 세션, 활성 운전자 유일성, 모집 수정 계약과 인증 실패 처리를 검증했습니다.
+- 같은 코드 트리에서 실제 HTTP/STOMP 연동 테스트 **1개 통과**: HTTP 요청 27건으로 TAXI 모집·승인과 위치 UUID 시작·전송·중지, 늦은 전송 및 이전 UUID의 삭제 차단을 확인했습니다. 전용 서버·DB·Redis는 정리했습니다.
+- 프론트 누적 브랜치는 테스트 **49개 통과**·빌드 성공을 확인했으며, 아직 main 병합 전입니다. 아래 브라우저·관측 검증을 이번에 다시 실행한 것은 아닙니다.
+
+### 2026-09-15 — 이전 기능·관측 검증 이력
+
+- 당시 백엔드 **159개 테스트 통과**, API1/API2/gateway의 SSE에서 동일 알림 ID 수신과 DB 알림함 대조
 - Prometheus **6개 타깃 UP**, Grafana 모아 개요 대시보드 **10개 패널**과 datasource 응답 확인
 - 워커 업무 API 403, gateway actuator 404 확인
-- [기능 구현을 병합한 main CI](https://github.com/techeer-2026-teamC/carpool/actions/runs/34928324351) 성공. 배포는 실행하지 않음
+- [당시 main CI](https://github.com/techeer-2026-teamC/carpool/actions/runs/34928324351) 성공. 배포는 실행하지 않음
 
 [실행·관측·검증 상세](https://www.notion.so/3dc226545d1581d09941c0fb137e1423)에 확인한 커밋·범위와 미검증 조건을 기록했습니다. 현재 GitHub Actions는 수동 실행을 포함해 빌드·테스트·의존성 검증만 수행합니다. **모아의 운영 배포는 지원하지 않으며**, [배포 재개 조건](docs/deployment-status.md)을 먼저 충족해야 합니다.
 
@@ -89,6 +100,8 @@ DB 이미지는 위 Compose 빌드로 준비합니다. 테스트는 별도 Postg
 
 | 읽는 목적 | 문서 |
 | --- | --- |
+| JWT 검증과 Redis 인증 상태 | [인증 처리 순서·claims 캐시 제거 근거](docs/jwt-authentication.md) |
+| 활성 운전자 유일성 | [V8 사전 점검·마이그레이션](docs/migrations/V8-active-driver.md) |
 | 전체 문서 탐색 | [Notion 백엔드 문서](https://www.notion.so/3dc226545d1581feae7fe91dbd0c68dd) |
 | 도메인과 코드 책임 | [도메인 지도](https://www.notion.so/3dc226545d1581d8884be3d69a27fbd0) · [핵심 객체·함수](https://www.notion.so/3dc226545d1581f48898f6a88cad1e85) |
 | API 요청·응답·오류 | [공통·인증](https://www.notion.so/3dc226545d1581a4beeffdcf1a01f969) · [모집·신청](https://www.notion.so/3dc226545d1581ee98fffb1c4f67fdfd) · [알림·만남·분담](https://www.notion.so/3dc226545d1581d78a5cf37bc41dcfeb) · [레거시](https://www.notion.so/3dc226545d15812e8c05d811f2779bc6) |
