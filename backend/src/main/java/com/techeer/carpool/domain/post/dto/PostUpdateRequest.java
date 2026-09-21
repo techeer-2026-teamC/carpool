@@ -17,9 +17,11 @@ import java.util.List;
 public class PostUpdateRequest {
 
     @NotBlank(message = "제목은 필수입니다.")
+    @Size(max = 100, message = "제목은 100자 이하여야 합니다.")
     private String title;
 
     @NotBlank(message = "출발지는 필수입니다.")
+    @Size(max = 100, message = "출발지는 100자 이하여야 합니다.")
     private String departureLocation;
 
     @NotNull
@@ -32,6 +34,7 @@ public class PostUpdateRequest {
     private Double departureLng;
 
     @NotBlank(message = "목적지는 필수입니다.")
+    @Size(max = 100, message = "목적지는 100자 이하여야 합니다.")
     private String destinationLocation;
 
     @NotNull
@@ -56,6 +59,7 @@ public class PostUpdateRequest {
     private PostType type;
     private PostStatus status;
     @Min(0)
+    // The edit request carries the full form: null (including omission) means undecided.
     private Integer price;
     private List<Long> tagIds;
 }

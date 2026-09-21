@@ -18,6 +18,8 @@ import com.techeer.carpool.global.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -277,6 +279,73 @@ class PostIntegrationTest {
         // 신청 상태 REJECTED 확인
         assertThat(applicationRepository.findByApplicantIdAndStatus(applicantId, ApplicationStatus.ACCEPTED)).isEmpty();
         assertThat(applicationRepository.findByApplicantIdAndStatus(applicantId, ApplicationStatus.REJECTED)).hasSize(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"title", "departureLocation", "destinationLocation"})
+    void textFieldsAccept100CharactersAndReject101OnCreateAndUpdate(String field) throws Exception {
+        Map<String, Object> create = buildPostBody(false);
+        Map<String, Object> update = buildUpdateBody("수정 제목");
+        create.put(field, "가".repeat(100));
+        update.put(field, "가".repeat(100));
+        mockMvc.perform(post("/api/v1/posts").header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(create)))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data." + field).value("가".repeat(100)));
+        mockMvc.perform(patch("/api/v1/posts/{id}", postId).header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data." + field).value("가".repeat(100)));
+
+        long count = postRepository.count();
+        create.put(field, "가".repeat(101));
+        update.put(field, "가".repeat(101));
+        mockMvc.perform(post("/api/v1/posts").header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(create)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMMON_001"));
+        mockMvc.perform(patch("/api/v1/posts/{id}", postId).header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMMON_001"));
+        assertThat(postRepository.count()).isEqualTo(count);
+        mockMvc.perform(get("/api/v1/posts/{id}", postId)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data." + field).value("가".repeat(100)));
+    }
+
+    @Test
+    void clearingPricePersistsUndecidedAmountBeforeAnyApplication() throws Exception {
+        Map<String, Object> body = buildUpdateBody("분담금 미정");
+        body.put("price", 5000);
+        mockMvc.perform(patch("/api/v1/posts/{id}", postId).header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.price").value(5000));
+        body.put("price", null);
+        mockMvc.perform(patch("/api/v1/posts/{id}", postId).header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.price").value(org.hamcrest.Matchers.nullValue()));
+        assertThat(postRepository.findById(postId).orElseThrow().getPrice()).isNull();
+        mockMvc.perform(get("/api/v1/posts/{id}", postId)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.price").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void clearingFrozenPriceIsRejectedButUnchangedPriceStillAllowsEditing() throws Exception {
+        Map<String, Object> body = buildUpdateBody("신청 이후 수정");
+        body.put("price", 5000);
+        mockMvc.perform(patch("/api/v1/posts/{id}", postId).header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/posts/{id}/applications", postId).header("Authorization", applicantToken))
+                .andExpect(status().isCreated());
+        // Use the persisted timestamp so the only attempted frozen change is price.
+        body.put("departureTime", postRepository.findById(postId).orElseThrow().getDepartureTime().toString());
+        body.put("price", null);
+        mockMvc.perform(patch("/api/v1/posts/{id}", postId).header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("POST_006"));
+        assertThat(postRepository.findById(postId).orElseThrow().getPrice()).isEqualTo(5000);
+        body.put("price", 5000);
+        body.put("description", "변경한 만남 안내");
+        mockMvc.perform(patch("/api/v1/posts/{id}", postId).header("Authorization", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.description").value("변경한 만남 안내"));
     }
 
     // ── helpers ───────────────────────────────────────────────
